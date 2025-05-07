@@ -1,12 +1,10 @@
 # sensuser
-A simple "toy" multilayer perceptron (MLP).
-This is something that has been around for a long time.
-See: https://en.wikipedia.org/wiki/Multilayer_perceptron
-
-
 sensuser is a QT application used to create and edit image classifier models that can be used with libnoodlenet found at: https://github.com/gnaservicesinc/libnoodlenet
 
-By “toy," the model is designed to be small, the implementation simplistic, and easy to dig into and understand. (This started as a simple single-layer thing; it has gotten more complex, but it is still very simple.)
+It was designed as a simple "toy" multilayer perceptron (MLP). This is something that has been around for a long time.
+See: https://en.wikipedia.org/wiki/Multilayer_perceptron
+
+By “toy," the model is designed to be small, the implementation simplistic, and easy to dig into and understand. (This started as a simple single-layer thing; it has gotten more complex, but it is still rather simple.)
 
 Usage:
 
