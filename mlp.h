@@ -1,0 +1,101 @@
+#ifndef MLP_H
+#define MLP_H
+
+#include "layer.h"
+#include <vector>
+#include <string>
+#include <Eigen/Dense>
+#include <QImage>
+#include <QJsonObject>
+
+/**
+ * @brief The MLP class represents a Multi-Layer Perceptron neural network
+ */
+class MLP
+{
+public:
+    /**
+     * @brief MLP constructor
+     * @param inputSize Number of input neurons
+     * @param hiddenSize Number of neurons in the hidden layer
+     * @param outputSize Number of output neurons
+     * @param hiddenActivation Activation function for the hidden layer
+     * @param outputActivation Activation function for the output layer
+     */
+    MLP(int inputSize, int hiddenSize, int outputSize,
+        const std::string& hiddenActivation = "sigmoid",
+        const std::string& outputActivation = "sigmoid");
+    
+    /**
+     * @brief Forward pass through the network
+     * @param input Input values
+     * @return Output values
+     */
+    Eigen::VectorXf forward(const Eigen::VectorXf& input);
+    
+    /**
+     * @brief Train the network on a single example
+     * @param input Input values
+     * @param target Target values
+     * @param learningRate Learning rate for weight updates
+     * @return Loss value
+     */
+    float train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate);
+    
+    /**
+     * @brief Preprocess an image for input to the network
+     * @param image Input image
+     * @return Preprocessed image as a vector
+     */
+    Eigen::VectorXf preprocessImage(const QImage& image);
+    
+    /**
+     * @brief Predict whether an image contains the target object
+     * @param image Input image
+     * @return Probability that the image contains the target object
+     */
+    float predict(const QImage& image);
+    
+    /**
+     * @brief Get the layers of the network
+     * @return Vector of layers
+     */
+    const std::vector<Layer>& getLayers() const { return layers; }
+    
+    /**
+     * @brief Save the model to a JSON object
+     * @return JSON object containing the model
+     */
+    QJsonObject saveToJson() const;
+    
+    /**
+     * @brief Load the model from a JSON object
+     * @param json JSON object containing the model
+     * @return True if successful, false otherwise
+     */
+    bool loadFromJson(const QJsonObject& json);
+    
+private:
+    std::vector<Layer> layers;
+    int inputSize;
+    int hiddenSize;
+    int outputSize;
+    
+    /**
+     * @brief Calculate the loss for a single example
+     * @param output Output values
+     * @param target Target values
+     * @return Loss value
+     */
+    float calculateLoss(const Eigen::VectorXf& output, const Eigen::VectorXf& target) const;
+    
+    /**
+     * @brief Calculate the gradient of the loss function
+     * @param output Output values
+     * @param target Target values
+     * @return Gradient of the loss function
+     */
+    Eigen::VectorXf calculateLossGradient(const Eigen::VectorXf& output, const Eigen::VectorXf& target) const;
+};
+
+#endif // MLP_H
