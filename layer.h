@@ -1,7 +1,7 @@
 #ifndef LAYER_H
 #define LAYER_H
 
-#include <Eigen/Dense>
+#include </usr/local/include/Eigen/Dense>
 #include <functional>
 #include <string>
 

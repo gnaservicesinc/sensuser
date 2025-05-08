@@ -460,30 +460,45 @@ void MainWindow::on_btnExportModel_clicked()
 {
     QString filePath = QFileDialog::getSaveFileName(this, "Export Model",
                                                    QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-                                                   "JSON Files (*.json)");
+                                                   "Binary Model Files (*.senm);;JSON Files (*.json)");
 
     if (filePath.isEmpty()) {
         return;
     }
 
-    // Add .json extension if not present
-    if (!filePath.endsWith(".json", Qt::CaseInsensitive)) {
-        filePath += ".json";
-    }
+    bool success = false;
 
-    // Save model to JSON
-    QJsonObject json = mlp->saveToJson();
-    QJsonDocument doc(json);
-    QByteArray jsonData = doc.toJson(QJsonDocument::Indented);
+    // Check which format was selected based on the file extension
+    if (filePath.endsWith(".senm", Qt::CaseInsensitive)) {
+        // Save model to binary format
+        success = mlp->saveToBinary(filePath);
 
-    // Write to file
-    QFile file(filePath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(jsonData);
-        file.close();
-        QMessageBox::information(this, "Export Successful", "Model exported successfully.");
+        if (success) {
+            QMessageBox::information(this, "Export Successful", "Model exported successfully in binary format.");
+        } else {
+            QMessageBox::critical(this, "Export Failed", "Failed to write model to binary file.");
+        }
     } else {
-        QMessageBox::critical(this, "Export Failed", "Failed to write model to file.");
+        // Add .json extension if not present
+        if (!filePath.endsWith(".json", Qt::CaseInsensitive)) {
+            filePath += ".json";
+        }
+
+        // Save model to JSON
+        QJsonObject json = mlp->saveToJson();
+        QJsonDocument doc(json);
+        QByteArray jsonData = doc.toJson(QJsonDocument::Indented);
+
+        // Write to file
+        QFile file(filePath);
+        if (file.open(QIODevice::WriteOnly)) {
+            file.write(jsonData);
+            file.close();
+            QMessageBox::information(this, "Export Successful", "Model exported successfully in JSON format.");
+            success = true;
+        } else {
+            QMessageBox::critical(this, "Export Failed", "Failed to write model to JSON file.");
+        }
     }
 }
 
@@ -491,42 +506,68 @@ void MainWindow::on_btnImportModel_clicked()
 {
     QString filePath = QFileDialog::getOpenFileName(this, "Import Model",
                                                    QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-                                                   "JSON Files (*.json)");
+                                                   "All Supported Files (*.senm *.json);;Binary Model Files (*.senm);;JSON Files (*.json)");
 
     if (filePath.isEmpty()) {
         return;
     }
 
-    // Read JSON file
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::critical(this, "Import Failed", "Failed to open model file.");
-        return;
-    }
+    bool success = false;
 
-    QByteArray jsonData = file.readAll();
-    file.close();
+    // Check file extension to determine format
+    if (filePath.endsWith(".senm", Qt::CaseInsensitive)) {
+        // Load model from binary format
+        success = mlp->loadFromBinary(filePath);
 
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
-    if (doc.isNull() || !doc.isObject()) {
-        QMessageBox::critical(this, "Import Failed", "Invalid JSON format.");
-        return;
-    }
+        if (success) {
+            QMessageBox::information(this, "Import Successful", "Model imported successfully from binary format.");
 
-    // Load model from JSON
-    if (mlp->loadFromJson(doc.object())) {
-        QMessageBox::information(this, "Import Successful", "Model imported successfully.");
+            // Update UI
+            ui->sbHiddenNeurons->setValue(mlp->getLayers()[0].getOutputSize());
+            ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
 
-        // Update UI
-        ui->sbHiddenNeurons->setValue(mlp->getLayers()[0].getOutputSize());
-        ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
-
-        // Update current image if available
-        if (!currentImage.isNull()) {
-            updateCurrentImage();
+            // Update current image if available
+            if (!currentImage.isNull()) {
+                updateCurrentImage();
+            }
+        } else {
+            QMessageBox::critical(this, "Import Failed", "Failed to load model from binary file. The file may be corrupted or incompatible.");
         }
     } else {
-        QMessageBox::critical(this, "Import Failed", "Failed to load model from file. The model architecture may be incompatible.");
+        // Assume JSON format
+        // Read JSON file
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly)) {
+            QMessageBox::critical(this, "Import Failed", "Failed to open model file.");
+            return;
+        }
+
+        QByteArray jsonData = file.readAll();
+        file.close();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+        if (doc.isNull() || !doc.isObject()) {
+            QMessageBox::critical(this, "Import Failed", "Invalid JSON format.");
+            return;
+        }
+
+        // Load model from JSON
+        if (mlp->loadFromJson(doc.object())) {
+            QMessageBox::information(this, "Import Successful", "Model imported successfully from JSON format.");
+
+            // Update UI
+            ui->sbHiddenNeurons->setValue(mlp->getLayers()[0].getOutputSize());
+            ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
+
+            // Update current image if available
+            if (!currentImage.isNull()) {
+                updateCurrentImage();
+            }
+
+            success = true;
+        } else {
+            QMessageBox::critical(this, "Import Failed", "Failed to load model from JSON file. The model architecture may be incompatible.");
+        }
     }
 }
 

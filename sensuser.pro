@@ -10,7 +10,7 @@ CONFIG += c++17
 
 # Eigen is a header-only library, so we just need to add the include path
 # Make sure to install Eigen or adjust the path accordingly
-INCLUDEPATH += /usr/local/include/eigen3
+INCLUDEPATH += /usr/local/include/Eigen
 
 SOURCES += \
     main.cpp \
