@@ -96,6 +96,7 @@ public:
 private:
     // Constants for binary file format
     static const quint32 MAGIC_NUMBER = 0x4D4E4553; // "SENM" in little-endian (S E N M)
+    static const quint32 MAGIC_NUMBER_REVERSED = 0x53454E4D; // "SENM" in big-endian (M N E S)
     static const quint8 FORMAT_VERSION = 0x01;
     std::vector<Layer> layers;
     int inputSize;

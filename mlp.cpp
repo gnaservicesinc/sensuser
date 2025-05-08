@@ -237,7 +237,7 @@ bool MLP::saveToBinary(const QString& filePath) const
     stream.setByteOrder(QDataStream::LittleEndian);
     stream.setFloatingPointPrecision(QDataStream::SinglePrecision);
 
-    // Write magic number and version
+    // Write magic number and version (using little-endian format for new models)
     stream << MAGIC_NUMBER << FORMAT_VERSION;
 
     // Create JSON metadata
@@ -318,7 +318,8 @@ bool MLP::loadFromBinary(const QString& filePath)
     quint8 formatVersion;
     stream >> magicNumber >> formatVersion;
 
-    if (magicNumber != MAGIC_NUMBER || formatVersion != FORMAT_VERSION) {
+    // Accept both magic number formats for compatibility
+    if ((magicNumber != MAGIC_NUMBER && magicNumber != MAGIC_NUMBER_REVERSED) || formatVersion != FORMAT_VERSION) {
         file.close();
         return false;
     }
