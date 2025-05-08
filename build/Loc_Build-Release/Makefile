@@ -37,7 +37,7 @@ MOVE          = mv -f
 TAR           = tar -cf
 COMPRESS      = gzip -9f
 DISTNAME      = sensuser1.0.0
-DISTDIR = /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/.tmp/sensuser1.0.0
+DISTDIR = /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/.tmp/sensuser1.0.0
 LINK          = /Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++
 LFLAGS        = -stdlib=libc++ -headerpad_max_install_names $(EXPORT_ARCH_ARGS) -isysroot /Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -mmacosx-version-min=12 -Wl,-rpath,@executable_path/../Frameworks -Wl,-rpath,/opt/Qt/6.9.0/macos/lib
 LIBS          = $(SUBLIBS) -F/opt/Qt/6.9.0/macos/lib -framework QtWidgets -framework QtGui -framework AppKit -framework ImageIO -framework Metal -framework QtCore -framework IOKit -framework DiskArbitration -framework UniformTypeIdentifiers -framework AGL -framework OpenGL   
@@ -239,7 +239,6 @@ DIST          = /opt/Qt/6.9.0/macos/mkspecs/features/spec_pre.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/qt_config.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/spec_post.prf \
-		../../../../.qmake.stash \
 		/opt/Qt/6.9.0/macos/mkspecs/features/exclusive_builds.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/mac/sdk.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/toolchain.prf \
@@ -287,12 +286,12 @@ TARGET        = sensuser.app/Contents/MacOS/sensuser
 EXPORT_QMAKE_MAC_SDK = macosx
 EXPORT_QMAKE_MAC_SDK_VERSION = 15.5
 EXPORT_QMAKE_XCODE_DEVELOPER_PATH = /Applications/Xcode.app/Contents/Developer
-EXPORT__QMAKE_STASH_ = /Users/andrewsmith/Desktop/projects/sensuser/sensuser/.qmake.stash
+EXPORT__QMAKE_STASH_ = 
 EXPORT_VALID_ARCHS = x86_64 arm64
 EXPORT_DEFAULT_ARCHS = arm64
 EXPORT_ARCHS = $(filter $(EXPORT_VALID_ARCHS), $(if $(ARCHS), $(ARCHS), $(if $(EXPORT_DEFAULT_ARCHS), $(EXPORT_DEFAULT_ARCHS), $(EXPORT_VALID_ARCHS))))
 EXPORT_ARCH_ARGS = $(foreach arch, $(if $(EXPORT_ARCHS), $(EXPORT_ARCHS), $(EXPORT_VALID_ARCHS)), -arch $(arch))
-EXPORT__PRO_FILE_ = /Users/andrewsmith/Desktop/projects/sensuser/sensuser/sensuser.pro
+EXPORT__PRO_FILE_ = /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/sensuser.pro
 
 
 include /opt/Qt/6.9.0/macos/mkspecs/features/mac/sdk.mk
@@ -302,7 +301,7 @@ first: all
 sensuser.app/Contents/MacOS/sensuser: ui_mainwindow.h $(OBJECTS)  
 	@test -d sensuser.app/Contents/MacOS/ || mkdir -p sensuser.app/Contents/MacOS/
 	$(LINK) $(LFLAGS) -o $(TARGET)  $(OBJECTS) $(OBJCOMP) $(LIBS)
-	mkdir -p /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF && dsymutil sensuser.app/Contents/MacOS/sensuser --flat -o sensuser.app.dSYM/Contents/Resources/DWARF/sensuser && strip -S sensuser.app/Contents/MacOS/sensuser
+	mkdir -p /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF && dsymutil sensuser.app/Contents/MacOS/sensuser --flat -o sensuser.app.dSYM/Contents/Resources/DWARF/sensuser && strip -S sensuser.app/Contents/MacOS/sensuser
 
 Makefile: ../../sensuser.pro /opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf /opt/Qt/6.9.0/macos/mkspecs/features/spec_pre.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/device_config.prf \
@@ -476,7 +475,6 @@ Makefile: ../../sensuser.pro /opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf /
 		/opt/Qt/6.9.0/macos/mkspecs/features/qt_config.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/spec_post.prf \
-		../../.qmake.stash \
 		/opt/Qt/6.9.0/macos/mkspecs/features/exclusive_builds.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/mac/sdk.prf \
 		/opt/Qt/6.9.0/macos/mkspecs/features/toolchain.prf \
@@ -687,7 +685,6 @@ Makefile: ../../sensuser.pro /opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf /
 /opt/Qt/6.9.0/macos/mkspecs/features/qt_config.prf:
 /opt/Qt/6.9.0/macos/mkspecs/macx-clang/qmake.conf:
 /opt/Qt/6.9.0/macos/mkspecs/features/spec_post.prf:
-../../.qmake.stash:
 /opt/Qt/6.9.0/macos/mkspecs/features/exclusive_builds.prf:
 /opt/Qt/6.9.0/macos/mkspecs/features/mac/sdk.prf:
 /opt/Qt/6.9.0/macos/mkspecs/features/toolchain.prf:
@@ -764,7 +761,7 @@ clean: compiler_clean
 
 distclean: clean 
 	-$(DEL_FILE) -r sensuser.app
-	-$(DEL_FILE) /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Info.plist
+	-$(DEL_FILE) /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Info.plist
 	-$(DEL_FILE) Makefile
 
 
@@ -1077,7 +1074,7 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 		/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		/opt/Qt/6.9.0/macos/libexec/moc
-	/opt/Qt/6.9.0/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=201402L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=17 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/opt/Qt/6.9.0/macos/mkspecs/macx-clang -I/Users/andrewsmith/Desktop/projects/sensuser/sensuser -I/usr/local/include/Eigen -I/opt/Qt/6.9.0/macos/lib/QtWidgets.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtGui.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers -I. -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/Qt/6.9.0/macos/lib ../../mainwindow.h -o moc_mainwindow.cpp
+	/opt/Qt/6.9.0/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=201402L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=17 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/opt/Qt/6.9.0/macos/mkspecs/macx-clang -I/Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser -I/usr/local/include/Eigen -I/opt/Qt/6.9.0/macos/lib/QtWidgets.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtGui.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers -I. -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/Qt/6.9.0/macos/lib ../../mainwindow.h -o moc_mainwindow.cpp
 
 moc_trainingworker.cpp: ../../trainingworker.h \
 		../../mlp.h \
@@ -1345,7 +1342,7 @@ moc_trainingworker.cpp: ../../trainingworker.h \
 		/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers/QDir \
 		/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers/qdir.h \
 		/opt/Qt/6.9.0/macos/libexec/moc
-	/opt/Qt/6.9.0/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=201402L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=17 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/opt/Qt/6.9.0/macos/mkspecs/macx-clang -I/Users/andrewsmith/Desktop/projects/sensuser/sensuser -I/usr/local/include/Eigen -I/opt/Qt/6.9.0/macos/lib/QtWidgets.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtGui.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers -I. -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/Qt/6.9.0/macos/lib ../../trainingworker.h -o moc_trainingworker.cpp
+	/opt/Qt/6.9.0/macos/libexec/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -D__cplusplus=201402L -D__APPLE_CC__=6000 -D__clang__ -D__clang_major__=17 -D__clang_minor__=0 -D__clang_patchlevel__=0 -D__GNUC__=4 -D__GNUC_MINOR__=2 -D__GNUC_PATCHLEVEL__=1 -I/opt/Qt/6.9.0/macos/mkspecs/macx-clang -I/Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser -I/usr/local/include/Eigen -I/opt/Qt/6.9.0/macos/lib/QtWidgets.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtGui.framework/Headers -I/opt/Qt/6.9.0/macos/lib/QtCore.framework/Headers -I. -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/Qt/6.9.0/macos/lib ../../trainingworker.h -o moc_trainingworker.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -2749,7 +2746,7 @@ uninstall_target: FORCE
 
 install_debug_info_plist_target: first FORCE
 	@test -d $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents || mkdir -p $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents
-	$(QINSTALL) /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Info.plist $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Info.plist
+	$(QINSTALL) /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Info.plist $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Info.plist
 
 uninstall_debug_info_plist_target: FORCE
 	-$(DEL_FILE) -r $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Info.plist
@@ -2758,7 +2755,7 @@ uninstall_debug_info_plist_target: FORCE
 
 install_debug_info_target: first FORCE
 	@test -d $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Resources/DWARF || mkdir -p $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Resources/DWARF
-	$(QINSTALL) /Users/andrewsmith/Desktop/projects/sensuser/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser
+	$(QINSTALL) /Users/andrewsmith/Desktop/projects/sensuser/repo/sensuser/build/Loc_Build-Release/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser
 
 uninstall_debug_info_target: FORCE
 	-$(DEL_FILE) -r $(INSTALL_ROOT)/opt/sensuser/bin/sensuser.app.dSYM/Contents/Resources/DWARF/sensuser
