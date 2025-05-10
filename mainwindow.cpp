@@ -25,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Connect signals and slots
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
     connect(worker, &TrainingWorker::progressUpdated, this, &MainWindow::onTrainingProgressUpdated);
+    connect(worker, &TrainingWorker::epochCompleted, this, &MainWindow::onEpochCompleted);
     connect(worker, &TrainingWorker::trainingComplete, this, &MainWindow::onTrainingComplete);
     connect(worker, &TrainingWorker::evaluationComplete, this, &MainWindow::onEvaluationComplete);
 
@@ -53,12 +54,20 @@ MainWindow::~MainWindow()
     delete inputLayerScene;
     delete hiddenLayerScene;
     delete outputLayerScene;
+
+    // The lossCurveWidget is owned by the tabWidget, so it will be deleted automatically
 }
 
 void MainWindow::initializeUI()
 {
     // Set window title
     setWindowTitle("MLP Image Classifier");
+
+    // Initialize loss curve widget
+    lossCurveWidget = new LossCurveWidget();
+
+    // Create a new tab for the loss curve widget
+    ui->tabWidget->addTab(lossCurveWidget, "Loss Curve");
 
     // Initialize graphics scenes
     inputLayerScene = new QGraphicsScene(this);
@@ -416,6 +425,7 @@ void MainWindow::on_btnTrain_clicked()
 
         // Connect signals and slots
         connect(worker, &TrainingWorker::progressUpdated, this, &MainWindow::onTrainingProgressUpdated);
+        connect(worker, &TrainingWorker::epochCompleted, this, &MainWindow::onEpochCompleted);
         connect(worker, &TrainingWorker::trainingComplete, this, &MainWindow::onTrainingComplete);
         connect(worker, &TrainingWorker::evaluationComplete, this, &MainWindow::onEvaluationComplete);
     }
@@ -435,6 +445,9 @@ void MainWindow::on_btnTrain_clicked()
     ui->btnImportModel->setEnabled(false);
     ui->progressBar->setValue(0);
     ui->progressBar->setVisible(true);
+
+    // Clear the loss curve
+    lossCurveWidget->clearPlot();
 
     // Start training
     QMetaObject::invokeMethod(worker, "train", Qt::QueuedConnection);
@@ -578,6 +591,12 @@ void MainWindow::onTrainingProgressUpdated(int epoch, int totalEpochs, float los
 
     // Update status bar
     statusBar()->showMessage(QString("Training: Epoch %1/%2, Loss: %3").arg(epoch).arg(totalEpochs).arg(loss, 0, 'f', 6));
+}
+
+void MainWindow::onEpochCompleted(int epoch, float loss, float validationLoss)
+{
+    // Update the loss curve widget
+    lossCurveWidget->addDataPoint(epoch, loss, validationLoss);
 }
 
 void MainWindow::onTrainingComplete(float finalLoss)

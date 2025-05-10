@@ -16,6 +16,7 @@
 
 #include "mlp.h"
 #include "trainingworker.h"
+#include "losscurvewidget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -44,6 +45,7 @@ private slots:
 
     // Training worker signals
     void onTrainingProgressUpdated(int epoch, int totalEpochs, float loss);
+    void onEpochCompleted(int epoch, float loss, float validationLoss);
     void onTrainingComplete(float finalLoss);
     void onEvaluationComplete(float accuracy, int truePositives, int trueNegatives, int falsePositives, int falseNegatives);
 
@@ -73,6 +75,9 @@ private:
     QGraphicsScene* inputLayerScene;
     QGraphicsScene* hiddenLayerScene;
     QGraphicsScene* outputLayerScene;
+
+    // Loss curve widget
+    LossCurveWidget* lossCurveWidget;
 
     // Initialize UI
     void initializeUI();

@@ -1,6 +1,6 @@
 QT       += core gui
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets charts
 
 CONFIG += c++17
 
@@ -17,13 +17,15 @@ SOURCES += \
     mainwindow.cpp \
     mlp.cpp \
     layer.cpp \
-    trainingworker.cpp
+    trainingworker.cpp \
+    losscurvewidget.cpp
 
 HEADERS += \
     mainwindow.h \
     mlp.h \
     layer.h \
-    trainingworker.h
+    trainingworker.h \
+    losscurvewidget.h
 
 FORMS += \
     mainwindow.ui

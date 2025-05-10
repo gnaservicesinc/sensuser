@@ -9,6 +9,7 @@
 TrainingWorker::TrainingWorker(MLP* mlp, QObject* parent)
     : QObject(parent), mlp(mlp), learningRate(0.01f), epochs(100), batchSize(10), shuffle(true), stopRequested(false)
 {
+    clearLossHistory();
 }
 
 void TrainingWorker::setPositiveDir(const QString& dir)
@@ -54,33 +55,54 @@ void TrainingWorker::stop()
     condition.wakeAll();
 }
 
+QVector<QPointF> TrainingWorker::getTrainingLossHistory() const
+{
+    // Use a non-const mutex for locking
+    QMutexLocker locker(const_cast<QMutex*>(&mutex));
+    return m_trainingLossHistory;
+}
+
+QVector<QPointF> TrainingWorker::getValidationLossHistory() const
+{
+    // Use a non-const mutex for locking
+    QMutexLocker locker(const_cast<QMutex*>(&mutex));
+    return m_validationLossHistory;
+}
+
+void TrainingWorker::clearLossHistory()
+{
+    QMutexLocker locker(&mutex);
+    m_trainingLossHistory.clear();
+    m_validationLossHistory.clear();
+}
+
 std::vector<QImage> TrainingWorker::loadImages(const QString& dir)
 {
     std::vector<QImage> images;
-    
+
     QDirIterator it(dir, QStringList() << "*.png" << "*.bmp", QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString filePath = it.next();
         QImageReader reader(filePath);
         QImage image = reader.read();
-        
+
         if (!image.isNull()) {
             images.push_back(image);
         } else {
             qWarning() << "Failed to load image:" << filePath << reader.errorString();
         }
     }
-    
+
     return images;
 }
 
 void TrainingWorker::train()
 {
     QMutexLocker locker(&mutex);
-    
+
     // Reset stop flag
     stopRequested = false;
-    
+
     // Load positive examples
     std::vector<QImage> positiveImages = loadImages(positiveDir);
     if (positiveImages.empty()) {
@@ -88,17 +110,17 @@ void TrainingWorker::train()
         emit trainingComplete(0.0f);
         return;
     }
-    
+
     // Prepare training data
     std::vector<Eigen::VectorXf> inputs;
     std::vector<Eigen::VectorXf> targets;
-    
+
     // Process positive examples
     for (const auto& image : positiveImages) {
         inputs.push_back(mlp->preprocessImage(image));
         targets.push_back(Eigen::VectorXf::Ones(1));
     }
-    
+
     // Process negative examples if available
     if (!negativeDir.isEmpty()) {
         std::vector<QImage> negativeImages = loadImages(negativeDir);
@@ -107,61 +129,69 @@ void TrainingWorker::train()
             targets.push_back(Eigen::VectorXf::Zero(1));
         }
     }
-    
+
     // Training loop
     float totalLoss = 0.0f;
-    int totalBatches = (inputs.size() + batchSize - 1) / batchSize;
-    
+    // Calculate total batches (for information only)
+    // int totalBatches = (inputs.size() + batchSize - 1) / batchSize;
+
+    // Clear loss history at the start of training
+    clearLossHistory();
+
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Shuffle data if requested
         if (shuffle) {
             std::random_device rd;
             std::mt19937 g(rd());
-            
+
             std::vector<int> indices(inputs.size());
-            for (int i = 0; i < indices.size(); ++i) {
-                indices[i] = i;
+            for (size_t i = 0; i < indices.size(); ++i) {
+                indices[i] = static_cast<int>(i);
             }
             std::shuffle(indices.begin(), indices.end(), g);
-            
+
             std::vector<Eigen::VectorXf> shuffledInputs;
             std::vector<Eigen::VectorXf> shuffledTargets;
-            
+
             for (int idx : indices) {
                 shuffledInputs.push_back(inputs[idx]);
                 shuffledTargets.push_back(targets[idx]);
             }
-            
+
             inputs = shuffledInputs;
             targets = shuffledTargets;
         }
-        
+
         // Train on batches
         totalLoss = 0.0f;
-        for (int i = 0; i < inputs.size(); i += batchSize) {
-            int batchEnd = std::min(i + batchSize, static_cast<int>(inputs.size()));
+        for (size_t i = 0; i < inputs.size(); i += batchSize) {
+            size_t batchEnd = std::min(i + static_cast<size_t>(batchSize), inputs.size());
             float batchLoss = 0.0f;
-            
-            for (int j = i; j < batchEnd; ++j) {
+
+            for (size_t j = i; j < batchEnd; ++j) {
                 batchLoss += mlp->train(inputs[j], targets[j], learningRate);
             }
-            
+
             totalLoss += batchLoss;
-            
+
             // Check if stop requested
             if (stopRequested) {
                 emit trainingComplete(totalLoss / inputs.size());
                 return;
             }
         }
-        
+
         // Calculate average loss
         float avgLoss = totalLoss / inputs.size();
-        
-        // Emit progress
+
+        // Store loss history
+        m_trainingLossHistory.append(QPointF(epoch + 1, avgLoss));
+
+        // Emit progress and epoch completion
         emit progressUpdated(epoch + 1, epochs, avgLoss);
+        emit epochCompleted(epoch + 1, avgLoss);
     }
-    
+
     // Training complete
     emit trainingComplete(totalLoss / inputs.size());
 }
@@ -169,7 +199,7 @@ void TrainingWorker::train()
 void TrainingWorker::evaluate()
 {
     QMutexLocker locker(&mutex);
-    
+
     // Load positive examples
     std::vector<QImage> positiveImages = loadImages(positiveDir);
     if (positiveImages.empty()) {
@@ -177,7 +207,7 @@ void TrainingWorker::evaluate()
         emit evaluationComplete(0.0f, 0, 0, 0, 0);
         return;
     }
-    
+
     // Load negative examples
     std::vector<QImage> negativeImages = loadImages(negativeDir);
     if (negativeImages.empty()) {
@@ -185,11 +215,11 @@ void TrainingWorker::evaluate()
         emit evaluationComplete(0.0f, 0, 0, 0, 0);
         return;
     }
-    
+
     // Evaluate on positive examples
     int truePositives = 0;
     int falseNegatives = 0;
-    
+
     for (const auto& image : positiveImages) {
         float prediction = mlp->predict(image);
         if (prediction >= 0.5f) {
@@ -198,11 +228,11 @@ void TrainingWorker::evaluate()
             falseNegatives++;
         }
     }
-    
+
     // Evaluate on negative examples
     int trueNegatives = 0;
     int falsePositives = 0;
-    
+
     for (const auto& image : negativeImages) {
         float prediction = mlp->predict(image);
         if (prediction < 0.5f) {
@@ -211,11 +241,11 @@ void TrainingWorker::evaluate()
             falsePositives++;
         }
     }
-    
+
     // Calculate accuracy
     int totalSamples = positiveImages.size() + negativeImages.size();
     float accuracy = static_cast<float>(truePositives + trueNegatives) / totalSamples;
-    
+
     // Emit evaluation results
     emit evaluationComplete(accuracy, truePositives, trueNegatives, falsePositives, falseNegatives);
 }
