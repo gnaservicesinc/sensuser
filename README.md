@@ -36,3 +36,18 @@ Negative examples should consist of one or more 512x512 PNG images that do not c
 Settings:
 
 Sensuser offers customizable settings to accommodate your specific requirements.
+
+
+
+
+Future Enhancements [TODO]:
+
+	⁃	Support for more hidden layers, configurable by the user.
+	⁃	Different activation functions (Tanh, ReLU, Leaky ReLU).
+	⁃	Different optimization algorithms (Adam, RMSprop).
+	⁃	Regularization techniques (L1, L2, Dropout) to prevent overfitting.
+	⁃	Data augmentation for images (rotation, flipping, small translations).
+	⁃	Saving/loading training progress (checkpoints).
+	⁃	More detailed performance metrics (precision, recall, F1-score, ROC curve).
+	⁃	Visualization of the loss curve over epochs.
+	⁃	Implement better parallelization multithreading in the sensor to increase the training speed of the sensor.
