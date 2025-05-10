@@ -1,10 +1,12 @@
 # sensuser
-sensuser is a QT application used to create and edit image classifier models that can be used with libnoodlenet found at: https://github.com/gnaservicesinc/libnoodlenet
+sensuser is a QT application that serves as a workbench to train models, evaluate models, and has tools to help analyze the model. The exported models can then be used in C and C++ projects using libnoodlenet found at: https://github.com/gnaservicesinc/libnoodlenet
 
-It was designed as a simple "toy" multilayer perceptron (MLP). This is something that has been around for a long time.
+It was originally designed as a simple "toy" 1-layer perceptron. Then it was rebuilt as a multilayer perceptron (MLP). This is something that has been around for a long time.
 See: https://en.wikipedia.org/wiki/Multilayer_perceptron
 
-By “toy," the model is designed to be small, the implementation simplistic, and easy to dig into and understand. (This started as a simple single-layer thing; it has gotten more complex, but it is still rather simple.)
+This allows it to perform actual image classification with photos and actually achieve very high accuracy when high-quality datasets are used with correct training values for the situation.
+
+Despite growing in scale, it is still very much a simple and small project that is intended to stay that way. Being designed as a “toy," the sensuser is designed to be small, simple to use, and simple to understand, the implementation simplistic, and easy to dig into and understand.
 
 Usage:
 
