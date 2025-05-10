@@ -74,6 +74,7 @@ void TrainingWorker::clearLossHistory()
     QMutexLocker locker(&mutex);
     m_trainingLossHistory.clear();
     m_validationLossHistory.clear();
+    // Note: This method is already properly protected with a mutex lock
 }
 
 std::vector<QImage> TrainingWorker::loadImages(const QString& dir)
@@ -98,15 +99,38 @@ std::vector<QImage> TrainingWorker::loadImages(const QString& dir)
 
 void TrainingWorker::train()
 {
-    QMutexLocker locker(&mutex);
+    // Local variables to store thread-safe copies of the parameters
+    QString localPositiveDir;
+    QString localNegativeDir;
+    float localLearningRate;
+    int localEpochs;
+    int localBatchSize;
+    bool localShuffle;
 
-    // Reset stop flag
-    stopRequested = false;
+    // Get parameters under mutex lock
+    {
+        QMutexLocker locker(&mutex);
 
-    // Load positive examples
-    std::vector<QImage> positiveImages = loadImages(positiveDir);
+        // Reset stop flag
+        stopRequested = false;
+
+        // Make local copies of all parameters
+        localPositiveDir = positiveDir;
+        localNegativeDir = negativeDir;
+        localLearningRate = learningRate;
+        localEpochs = epochs;
+        localBatchSize = batchSize;
+        localShuffle = shuffle;
+
+        // Clear loss history at the start of training
+        m_trainingLossHistory.clear();
+        m_validationLossHistory.clear();
+    }
+
+    // Load positive examples - done outside the mutex lock
+    std::vector<QImage> positiveImages = loadImages(localPositiveDir);
     if (positiveImages.empty()) {
-        qWarning() << "No positive images found in" << positiveDir;
+        qWarning() << "No positive images found in" << localPositiveDir;
         emit trainingComplete(0.0f);
         return;
     }
@@ -122,8 +146,8 @@ void TrainingWorker::train()
     }
 
     // Process negative examples if available
-    if (!negativeDir.isEmpty()) {
-        std::vector<QImage> negativeImages = loadImages(negativeDir);
+    if (!localNegativeDir.isEmpty()) {
+        std::vector<QImage> negativeImages = loadImages(localNegativeDir);
         for (const auto& image : negativeImages) {
             inputs.push_back(mlp->preprocessImage(image));
             targets.push_back(Eigen::VectorXf::Zero(1));
@@ -132,15 +156,19 @@ void TrainingWorker::train()
 
     // Training loop
     float totalLoss = 0.0f;
-    // Calculate total batches (for information only)
-    // int totalBatches = (inputs.size() + batchSize - 1) / batchSize;
 
-    // Clear loss history at the start of training
-    clearLossHistory();
+    for (int epoch = 0; epoch < localEpochs; ++epoch) {
+        // Check if stop requested before each epoch
+        {
+            QMutexLocker locker(&mutex);
+            if (stopRequested) {
+                emit trainingComplete(totalLoss / inputs.size());
+                return;
+            }
+        }
 
-    for (int epoch = 0; epoch < epochs; ++epoch) {
         // Shuffle data if requested
-        if (shuffle) {
+        if (localShuffle) {
             std::random_device rd;
             std::mt19937 g(rd());
 
@@ -164,31 +192,37 @@ void TrainingWorker::train()
 
         // Train on batches
         totalLoss = 0.0f;
-        for (size_t i = 0; i < inputs.size(); i += batchSize) {
-            size_t batchEnd = std::min(i + static_cast<size_t>(batchSize), inputs.size());
+        for (size_t i = 0; i < inputs.size(); i += localBatchSize) {
+            size_t batchEnd = std::min(i + static_cast<size_t>(localBatchSize), inputs.size());
             float batchLoss = 0.0f;
 
             for (size_t j = i; j < batchEnd; ++j) {
-                batchLoss += mlp->train(inputs[j], targets[j], learningRate);
+                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate);
             }
 
             totalLoss += batchLoss;
 
-            // Check if stop requested
-            if (stopRequested) {
-                emit trainingComplete(totalLoss / inputs.size());
-                return;
+            // Check if stop requested periodically
+            {
+                QMutexLocker locker(&mutex);
+                if (stopRequested) {
+                    emit trainingComplete(totalLoss / inputs.size());
+                    return;
+                }
             }
         }
 
         // Calculate average loss
         float avgLoss = totalLoss / inputs.size();
 
-        // Store loss history
-        m_trainingLossHistory.append(QPointF(epoch + 1, avgLoss));
+        // Store loss history - need to lock mutex for this
+        {
+            QMutexLocker locker(&mutex);
+            m_trainingLossHistory.append(QPointF(epoch + 1, avgLoss));
+        }
 
-        // Emit progress and epoch completion
-        emit progressUpdated(epoch + 1, epochs, avgLoss);
+        // Emit progress and epoch completion - done outside the mutex lock
+        emit progressUpdated(epoch + 1, localEpochs, avgLoss);
         emit epochCompleted(epoch + 1, avgLoss);
     }
 
@@ -198,20 +232,29 @@ void TrainingWorker::train()
 
 void TrainingWorker::evaluate()
 {
-    QMutexLocker locker(&mutex);
+    // Local variables to store thread-safe copies of the parameters
+    QString localPositiveDir;
+    QString localNegativeDir;
 
-    // Load positive examples
-    std::vector<QImage> positiveImages = loadImages(positiveDir);
+    // Get parameters under mutex lock
+    {
+        QMutexLocker locker(&mutex);
+        localPositiveDir = positiveDir;
+        localNegativeDir = negativeDir;
+    }
+
+    // Load positive examples - done outside the mutex lock
+    std::vector<QImage> positiveImages = loadImages(localPositiveDir);
     if (positiveImages.empty()) {
-        qWarning() << "No positive images found in" << positiveDir;
+        qWarning() << "No positive images found in" << localPositiveDir;
         emit evaluationComplete(0.0f, 0, 0, 0, 0);
         return;
     }
 
     // Load negative examples
-    std::vector<QImage> negativeImages = loadImages(negativeDir);
+    std::vector<QImage> negativeImages = loadImages(localNegativeDir);
     if (negativeImages.empty()) {
-        qWarning() << "No negative images found in" << negativeDir;
+        qWarning() << "No negative images found in" << localNegativeDir;
         emit evaluationComplete(0.0f, 0, 0, 0, 0);
         return;
     }

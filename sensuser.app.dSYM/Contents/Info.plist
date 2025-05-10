@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>CFBundleIdentifier</key>
-		<string>com.apple.xcode.dsym.com.yourcompany.sensuser</string>
+		<string>com.apple.xcode.dsym.com.andrewjosephsmith.noodlenet-cpp.sensuser</string>
 		<key>CFBundlePackageType</key>
 		<string>dSYM</string>
 		<key>CFBundleSignature</key>

@@ -52,6 +52,8 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "epoch",
         "totalEpochs",
         "loss",
+        "onEpochCompleted",
+        "validationLoss",
         "onTrainingComplete",
         "finalLoss",
         "onEvaluationComplete",
@@ -85,18 +87,22 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void(int, int, float)>(10, 2, QMC::AccessPrivate, QMetaType::Void, {{
             { QMetaType::Int, 11 }, { QMetaType::Int, 12 }, { QMetaType::Float, 13 },
         }}),
+        // Slot 'onEpochCompleted'
+        QtMocHelpers::SlotData<void(int, float, float)>(14, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 11 }, { QMetaType::Float, 13 }, { QMetaType::Float, 15 },
+        }}),
         // Slot 'onTrainingComplete'
-        QtMocHelpers::SlotData<void(float)>(14, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Float, 15 },
+        QtMocHelpers::SlotData<void(float)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Float, 17 },
         }}),
         // Slot 'onEvaluationComplete'
-        QtMocHelpers::SlotData<void(float, int, int, int, int)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Float, 17 }, { QMetaType::Int, 18 }, { QMetaType::Int, 19 }, { QMetaType::Int, 20 },
-            { QMetaType::Int, 21 },
+        QtMocHelpers::SlotData<void(float, int, int, int, int)>(18, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Float, 19 }, { QMetaType::Int, 20 }, { QMetaType::Int, 21 }, { QMetaType::Int, 22 },
+            { QMetaType::Int, 23 },
         }}),
         // Slot 'onTabChanged'
-        QtMocHelpers::SlotData<void(int)>(22, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 23 },
+        QtMocHelpers::SlotData<void(int)>(24, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 25 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -130,9 +136,10 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 6: _t->on_btnExportModel_clicked(); break;
         case 7: _t->on_btnImportModel_clicked(); break;
         case 8: _t->onTrainingProgressUpdated((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[3]))); break;
-        case 9: _t->onTrainingComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1]))); break;
-        case 10: _t->onEvaluationComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[5]))); break;
-        case 11: _t->onTabChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 9: _t->onEpochCompleted((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[3]))); break;
+        case 10: _t->onTrainingComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1]))); break;
+        case 11: _t->onEvaluationComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[5]))); break;
+        case 12: _t->onTabChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
         default: ;
         }
     }
@@ -157,14 +164,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 12)
+        if (_id < 13)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 12;
+        _id -= 13;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 12)
+        if (_id < 13)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 12;
+        _id -= 13;
     }
     return _id;
 }
