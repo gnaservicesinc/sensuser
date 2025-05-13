@@ -49,5 +49,4 @@ Future Enhancements [TODO]:
 	⁃	Data augmentation for images (rotation, flipping, small translations).
 	⁃	Saving/loading training progress (checkpoints).
 	⁃	More detailed performance metrics (precision, recall, F1-score, ROC curve).
-	⁃	Visualization of the loss curve over epochs.
 	⁃	Implement better parallelization multithreading in the sensor to increase the training speed of the sensor.
