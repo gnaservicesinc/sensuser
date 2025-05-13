@@ -33,11 +33,13 @@ Usage:
 
 Negative examples should consist of one or more 512x512 PNG images that do not contain the object or pattern for which the model is being trained.
 
-Settings:
+A note on building:
+ 
+I need to fix the autotools setup on this project. That is on my TODO list, but it is a lower priority than the "Future Enhancements [TODO]" listed below.
 
-Sensuser offers customizable settings to accommodate your specific requirements.
+Until then:
 
-
+The easiest way to build the project is to open the sensuser.pro file in Qt Creator and use that to build the project. 
 
 
 Future Enhancements [TODO]:
