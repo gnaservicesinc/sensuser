@@ -13,6 +13,8 @@
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
 #include <QTimer>
+#include <QListWidget>
+#include <QSpinBox>
 
 #include "mlp.h"
 #include "trainingworker.h"
@@ -52,6 +54,11 @@ private slots:
     // Tab changed
     void onTabChanged(int index);
 
+    // Hidden layers configuration
+    void onAddHiddenLayerClicked();
+    void onRemoveHiddenLayerClicked();
+    void onHiddenLayerValueChanged(int value);
+
 private:
     Ui::MainWindow *ui;
 
@@ -79,8 +86,23 @@ private:
     // Loss curve widget
     LossCurveWidget* lossCurveWidget;
 
+    // Hidden layers configuration
+    QListWidget* hiddenLayersList;
+    QPushButton* addHiddenLayerButton;
+    QPushButton* removeHiddenLayerButton;
+    std::vector<int> hiddenLayerSizes;
+
     // Initialize UI
     void initializeUI();
+
+    // Setup hidden layers UI
+    void setupHiddenLayersUI();
+
+    // Update hidden layers UI from model
+    void updateHiddenLayersUIFromModel();
+
+    // Create MLP from UI configuration
+    void createMLPFromUIConfig();
 
     // Load images from directory
     void loadImagesFromDir(const QString& dir, QStringList& imageList);

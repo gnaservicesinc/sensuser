@@ -87,7 +87,6 @@ void MainWindow::initializeUI()
     ui->lblAccuracy->setText("No evaluation");
 
     // Set default values for training parameters
-    ui->sbHiddenNeurons->setValue(128);
     ui->cbHiddenActivation->addItem("sigmoid");
     ui->cbHiddenActivation->addItem("relu");
     ui->cbHiddenActivation->addItem("tanh");
@@ -96,6 +95,9 @@ void MainWindow::initializeUI()
     ui->sbBatchSize->setValue(10);
     ui->cbShuffle->setChecked(true);
     ui->sbBias->setValue(0.0);
+
+    // Setup hidden layers configuration UI
+    setupHiddenLayersUI();
 
     // Disable buttons that require data
     ui->btnTrain->setEnabled(false);
@@ -223,34 +225,78 @@ void MainWindow::updateHiddenLayerVisualization()
     Eigen::VectorXf input = mlp->preprocessImage(currentImage);
     mlp->forward(input);
 
-    // Get hidden layer
-    const Layer& hiddenLayer = mlp->getLayers()[0];
-    const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
+    // Get number of hidden layers
+    int numHiddenLayers = mlp->getNumHiddenLayers();
+    if (numHiddenLayers == 0) {
+        // No hidden layers to visualize
+        hiddenLayerScene->addText("No hidden layers in this model");
+        return;
+    }
 
-    // Determine grid size
-    int hiddenSize = hiddenLayer.getOutputSize();
-    int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
+    // Create a layout for visualizing all hidden layers
+    int totalWidth = 0;
+    int maxHeight = 0;
+    std::vector<QGraphicsItemGroup*> layerGroups;
 
-    // Calculate cell size
-    int cellSize = std::min(ui->gvHiddenLayer->width() / gridSize, ui->gvHiddenLayer->height() / gridSize);
+    // Process each hidden layer
+    for (int layerIdx = 0; layerIdx < numHiddenLayers; ++layerIdx) {
+        // Get hidden layer
+        const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
+        const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
 
-    // Draw activations as a grid of colored squares
-    for (int i = 0; i < hiddenSize; ++i) {
-        int row = i / gridSize;
-        int col = i % gridSize;
+        // Create a group for this layer
+        QGraphicsItemGroup* layerGroup = hiddenLayerScene->createItemGroup({});
 
-        // Map activation to color intensity (0-255)
-        int intensity = static_cast<int>(activations(i) * 255);
-        QColor color(intensity, intensity, intensity);
+        // Add layer title
+        QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
+        layerTitle->setPos(0, 0);
+        layerGroup->addToGroup(layerTitle);
 
-        // Create rectangle
-        QGraphicsRectItem* rect = hiddenLayerScene->addRect(col * cellSize, row * cellSize, cellSize, cellSize);
-        rect->setBrush(QBrush(color));
-        rect->setPen(QPen(Qt::black));
+        // Determine grid size for this layer
+        int hiddenSize = hiddenLayer.getOutputSize();
+        int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
+
+        // Calculate cell size
+        int cellSize = 20; // Fixed size for consistency
+
+        // Draw activations as a grid of colored squares
+        for (int i = 0; i < hiddenSize; ++i) {
+            int row = i / gridSize;
+            int col = i % gridSize;
+
+            // Map activation to color intensity (0-255)
+            int intensity = static_cast<int>(activations(i) * 255);
+            QColor color(intensity, intensity, intensity);
+
+            // Create rectangle
+            QGraphicsRectItem* rect = hiddenLayerScene->addRect(
+                col * cellSize,
+                row * cellSize + layerTitle->boundingRect().height() + 10,
+                cellSize,
+                cellSize
+            );
+            rect->setBrush(QBrush(color));
+            rect->setPen(QPen(Qt::black));
+            layerGroup->addToGroup(rect);
+        }
+
+        // Calculate layer dimensions
+        int layerWidth = gridSize * cellSize;
+        int layerHeight = gridSize * cellSize + layerTitle->boundingRect().height() + 10;
+
+        // Position the layer group
+        layerGroup->setPos(totalWidth, 0);
+
+        // Update total width and max height
+        totalWidth += layerWidth + 50; // Add spacing between layers
+        maxHeight = std::max(maxHeight, layerHeight);
+
+        // Store the group
+        layerGroups.push_back(layerGroup);
     }
 
     // Set scene rect
-    hiddenLayerScene->setSceneRect(0, 0, gridSize * cellSize, gridSize * cellSize);
+    hiddenLayerScene->setSceneRect(0, 0, totalWidth, maxHeight);
     ui->gvHiddenLayer->fitInView(hiddenLayerScene->sceneRect(), Qt::KeepAspectRatio);
 }
 
@@ -263,8 +309,8 @@ void MainWindow::updateOutputLayerVisualization()
         return;
     }
 
-    // Get output layer
-    const Layer& outputLayer = mlp->getLayers()[1];
+    // Get output layer (last layer in the network)
+    const Layer& outputLayer = mlp->getLayers().back();
     const Eigen::VectorXf& output = outputLayer.getLastOutput();
     const Eigen::VectorXf& z = outputLayer.getLastZ();
 
@@ -313,8 +359,23 @@ void MainWindow::updateOutputLayerVisualization()
     halfLabel->setPos(thresholdX - 10, barY + barHeight + 10);
     oneLabel->setPos(barWidth - 20, barY + barHeight + 10);
 
+    // Add network architecture information
+    int numHiddenLayers = mlp->getNumHiddenLayers();
+    QString architectureInfo = QString("Network Architecture: %1 input → ").arg(mlp->getLayers()[0].getInputSize());
+
+    if (numHiddenLayers > 0) {
+        for (int i = 0; i < numHiddenLayers; ++i) {
+            architectureInfo += QString("%1 → ").arg(mlp->getLayers()[i].getOutputSize());
+        }
+    }
+
+    architectureInfo += QString("%1 output").arg(mlp->getLayers().back().getOutputSize());
+
+    QGraphicsTextItem* architectureItem = outputLayerScene->addText(architectureInfo);
+    architectureItem->setPos(0, barY + barHeight + 50);
+
     // Set scene rect
-    outputLayerScene->setSceneRect(0, 0, barWidth + 50, barY + barHeight + 50);
+    outputLayerScene->setSceneRect(0, 0, barWidth + 50, barY + barHeight + 100);
     ui->gvOutputLayer->fitInView(outputLayerScene->sceneRect(), Qt::KeepAspectRatio);
 }
 
@@ -406,29 +467,154 @@ void MainWindow::on_btnPrevImage_clicked()
     }
 }
 
-void MainWindow::on_btnTrain_clicked()
+void MainWindow::setupHiddenLayersUI()
 {
-    // Update MLP with current parameters
-    int hiddenNeurons = ui->sbHiddenNeurons->value();
+    // Create a list widget for hidden layers
+    hiddenLayersList = new QListWidget();
+
+    // Create buttons for adding and removing hidden layers
+    addHiddenLayerButton = new QPushButton("Add Hidden Layer");
+    removeHiddenLayerButton = new QPushButton("Remove Hidden Layer");
+
+    // Create a layout for the buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->addWidget(addHiddenLayerButton);
+    buttonLayout->addWidget(removeHiddenLayerButton);
+
+    // Create a layout for the hidden layers configuration
+    QVBoxLayout* hiddenLayersLayout = new QVBoxLayout();
+    hiddenLayersLayout->addWidget(new QLabel("Hidden Layers:"));
+    hiddenLayersLayout->addWidget(hiddenLayersList);
+    hiddenLayersLayout->addLayout(buttonLayout);
+
+    // Add the layout to the network configuration group box
+    QLayout* oldLayout = ui->groupBox_2->layout();
+    if (oldLayout) {
+        // Remove the old hidden neurons spin box and label
+        QLabel* hiddenNeuronsLabel = ui->groupBox_2->findChild<QLabel*>("label_3");
+        if (hiddenNeuronsLabel) {
+            hiddenNeuronsLabel->hide();
+        }
+
+        QSpinBox* hiddenNeuronsSpinBox = ui->groupBox_2->findChild<QSpinBox*>("sbHiddenNeurons");
+        if (hiddenNeuronsSpinBox) {
+            hiddenNeuronsSpinBox->hide();
+        }
+
+        // Add the new layout to the group box
+        QGridLayout* gridLayout = qobject_cast<QGridLayout*>(oldLayout);
+        if (gridLayout) {
+            gridLayout->addLayout(hiddenLayersLayout, 0, 0, 1, 2);
+        }
+    }
+
+    // Connect signals and slots
+    connect(addHiddenLayerButton, &QPushButton::clicked, this, &MainWindow::onAddHiddenLayerClicked);
+    connect(removeHiddenLayerButton, &QPushButton::clicked, this, &MainWindow::onRemoveHiddenLayerClicked);
+
+    // Add a default hidden layer with 128 neurons
+    hiddenLayerSizes = {128};
+    updateHiddenLayersUIFromModel();
+}
+
+void MainWindow::updateHiddenLayersUIFromModel()
+{
+    // Clear the list widget
+    hiddenLayersList->clear();
+
+    // Add items for each hidden layer
+    for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
+        QListWidgetItem* item = new QListWidgetItem();
+        hiddenLayersList->addItem(item);
+
+        // Create a widget for the item
+        QWidget* itemWidget = new QWidget();
+        QHBoxLayout* itemLayout = new QHBoxLayout(itemWidget);
+
+        // Add a label
+        QLabel* label = new QLabel(QString("Layer %1:").arg(i + 1));
+        itemLayout->addWidget(label);
+
+        // Add a spin box for the number of neurons
+        QSpinBox* spinBox = new QSpinBox();
+        spinBox->setMinimum(1);
+        spinBox->setMaximum(1024);
+        spinBox->setValue(hiddenLayerSizes[i]);
+        spinBox->setProperty("layerIndex", static_cast<int>(i));
+        connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onHiddenLayerValueChanged);
+        itemLayout->addWidget(spinBox);
+
+        // Add a label for "neurons"
+        QLabel* neuronsLabel = new QLabel("neurons");
+        itemLayout->addWidget(neuronsLabel);
+
+        // Set the item widget
+        hiddenLayersList->setItemWidget(item, itemWidget);
+    }
+
+    // Enable/disable the remove button based on the number of layers
+    removeHiddenLayerButton->setEnabled(hiddenLayerSizes.size() > 1);
+}
+
+void MainWindow::onAddHiddenLayerClicked()
+{
+    // Add a new hidden layer with the same number of neurons as the last one
+    int newLayerSize = hiddenLayerSizes.empty() ? 128 : hiddenLayerSizes.back();
+    hiddenLayerSizes.push_back(newLayerSize);
+
+    // Update the UI
+    updateHiddenLayersUIFromModel();
+}
+
+void MainWindow::onRemoveHiddenLayerClicked()
+{
+    // Remove the last hidden layer
+    if (!hiddenLayerSizes.empty()) {
+        hiddenLayerSizes.pop_back();
+
+        // Update the UI
+        updateHiddenLayersUIFromModel();
+    }
+}
+
+void MainWindow::onHiddenLayerValueChanged(int value)
+{
+    // Get the layer index from the sender
+    QSpinBox* spinBox = qobject_cast<QSpinBox*>(sender());
+    if (spinBox) {
+        int layerIndex = spinBox->property("layerIndex").toInt();
+        if (layerIndex >= 0 && layerIndex < static_cast<int>(hiddenLayerSizes.size())) {
+            hiddenLayerSizes[layerIndex] = value;
+        }
+    }
+}
+
+void MainWindow::createMLPFromUIConfig()
+{
+    // Get the activation function
     QString hiddenActivation = ui->cbHiddenActivation->currentText();
 
-    // If hidden neurons changed, recreate MLP
-    if (hiddenNeurons != mlp->getLayers()[0].getOutputSize()) {
-        delete mlp;
-        mlp = new MLP(512 * 512, hiddenNeurons, 1, hiddenActivation.toStdString(), "sigmoid");
+    // Create a new MLP with the configured hidden layers
+    delete mlp;
+    mlp = new MLP(512 * 512, hiddenLayerSizes, 1, hiddenActivation.toStdString(), "sigmoid");
 
-        // Update worker
-        worker->stop();
-        delete worker;
-        worker = new TrainingWorker(mlp);
-        worker->moveToThread(&workerThread);
+    // Update worker
+    worker->stop();
+    delete worker;
+    worker = new TrainingWorker(mlp);
+    worker->moveToThread(&workerThread);
 
-        // Connect signals and slots
-        connect(worker, &TrainingWorker::progressUpdated, this, &MainWindow::onTrainingProgressUpdated);
-        connect(worker, &TrainingWorker::epochCompleted, this, &MainWindow::onEpochCompleted);
-        connect(worker, &TrainingWorker::trainingComplete, this, &MainWindow::onTrainingComplete);
-        connect(worker, &TrainingWorker::evaluationComplete, this, &MainWindow::onEvaluationComplete);
-    }
+    // Connect signals and slots
+    connect(worker, &TrainingWorker::progressUpdated, this, &MainWindow::onTrainingProgressUpdated);
+    connect(worker, &TrainingWorker::epochCompleted, this, &MainWindow::onEpochCompleted);
+    connect(worker, &TrainingWorker::trainingComplete, this, &MainWindow::onTrainingComplete);
+    connect(worker, &TrainingWorker::evaluationComplete, this, &MainWindow::onEvaluationComplete);
+}
+
+void MainWindow::on_btnTrain_clicked()
+{
+    // Create a new MLP with the current configuration
+    createMLPFromUIConfig();
 
     // Set training parameters
     worker->setPositiveDir(positiveDir);
@@ -535,9 +721,14 @@ void MainWindow::on_btnImportModel_clicked()
         if (success) {
             QMessageBox::information(this, "Import Successful", "Model imported successfully from binary format.");
 
-            // Update UI
-            ui->sbHiddenNeurons->setValue(mlp->getLayers()[0].getOutputSize());
-            ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
+            // Update UI with the loaded model's configuration
+            hiddenLayerSizes = mlp->getHiddenLayerSizes();
+            updateHiddenLayersUIFromModel();
+
+            // Set activation function
+            if (mlp->getNumHiddenLayers() > 0) {
+                ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
+            }
 
             // Update current image if available
             if (!currentImage.isNull()) {
@@ -568,9 +759,14 @@ void MainWindow::on_btnImportModel_clicked()
         if (mlp->loadFromJson(doc.object())) {
             QMessageBox::information(this, "Import Successful", "Model imported successfully from JSON format.");
 
-            // Update UI
-            ui->sbHiddenNeurons->setValue(mlp->getLayers()[0].getOutputSize());
-            ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
+            // Update UI with the loaded model's configuration
+            hiddenLayerSizes = mlp->getHiddenLayerSizes();
+            updateHiddenLayersUIFromModel();
+
+            // Set activation function
+            if (mlp->getNumHiddenLayers() > 0) {
+                ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
+            }
 
             // Update current image if available
             if (!currentImage.isNull()) {
