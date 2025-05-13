@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QListWidget>
 #include <QSpinBox>
+#include <QComboBox>
 
 #include "mlp.h"
 #include "trainingworker.h"

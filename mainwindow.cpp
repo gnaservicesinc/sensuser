@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     , currentImageIndex(-1)
     , isCurrentImagePositive(false)
 {
-    ui->setupUi(this);
+    ui->setupUi(static_cast<QMainWindow*>(this));
 
     // Initialize MLP with 512x512 input, 128 hidden neurons, and 1 output neuron
     mlp = new MLP(512 * 512, 128, 1, "sigmoid", "sigmoid");
@@ -36,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
     initializeUI();
 
     // Connect tab changed signal
-    connect(ui->tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
+    connect(ui->tabWidget, SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
 }
 
 MainWindow::~MainWindow()
@@ -70,9 +70,9 @@ void MainWindow::initializeUI()
     ui->tabWidget->addTab(lossCurveWidget, "Loss Curve");
 
     // Initialize graphics scenes
-    inputLayerScene = new QGraphicsScene(this);
-    hiddenLayerScene = new QGraphicsScene(this);
-    outputLayerScene = new QGraphicsScene(this);
+    inputLayerScene = new QGraphicsScene(static_cast<QObject*>(this));
+    hiddenLayerScene = new QGraphicsScene(static_cast<QObject*>(this));
+    outputLayerScene = new QGraphicsScene(static_cast<QObject*>(this));
 
     // Set scenes for graphics views
     ui->gvInputLayer->setScene(inputLayerScene);
@@ -103,8 +103,8 @@ void MainWindow::initializeUI()
     hiddenLayerSelector = new QComboBox();
     hiddenLayerSelector->addItem("Hidden Layer 1");
     hiddenLayerSelector->setStyleSheet("background-color: white; color: black; font-weight: bold;");
-    connect(hiddenLayerSelector, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &MainWindow::onHiddenLayerSelectorChanged);
+    connect(hiddenLayerSelector, SIGNAL(currentIndexChanged(int)),
+            this, SLOT(onHiddenLayerSelectorChanged(int)));
 
     // Add the selector to the Hidden Layer visualization tab
     QWidget* hiddenLayerTab = ui->tabWidget->widget(2); // Assuming Hidden Layer tab is at index 2
@@ -474,7 +474,7 @@ void MainWindow::updateOutputLayerVisualization()
 
 void MainWindow::on_btnLoadPositive_clicked()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Directory with Positive Examples",
+    QString dir = QFileDialog::getExistingDirectory(static_cast<QWidget*>(this), "Select Directory with Positive Examples",
                                                    QStandardPaths::writableLocation(QStandardPaths::PicturesLocation),
                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
@@ -504,7 +504,7 @@ void MainWindow::on_btnLoadPositive_clicked()
 
 void MainWindow::on_btnLoadNegative_clicked()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Directory with Negative Examples",
+    QString dir = QFileDialog::getExistingDirectory(static_cast<QWidget*>(this), "Select Directory with Negative Examples",
                                                    QStandardPaths::writableLocation(QStandardPaths::PicturesLocation),
                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
@@ -602,8 +602,8 @@ void MainWindow::setupHiddenLayersUI()
     }
 
     // Connect signals and slots
-    connect(addHiddenLayerButton, &QPushButton::clicked, this, &MainWindow::onAddHiddenLayerClicked);
-    connect(removeHiddenLayerButton, &QPushButton::clicked, this, &MainWindow::onRemoveHiddenLayerClicked);
+    connect(addHiddenLayerButton, SIGNAL(clicked()), this, SLOT(onAddHiddenLayerClicked()));
+    connect(removeHiddenLayerButton, SIGNAL(clicked()), this, SLOT(onRemoveHiddenLayerClicked()));
 
     // Add a default hidden layer with 128 neurons
     hiddenLayerSizes = {128};
@@ -643,7 +643,7 @@ void MainWindow::updateHiddenLayersUIFromModel()
         spinBox->setProperty("layerIndex", static_cast<int>(i));
         // Style the spinbox for better visibility
         spinBox->setStyleSheet("background-color: white; color: black;");
-        connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onHiddenLayerValueChanged);
+        connect(spinBox, SIGNAL(valueChanged(int)), this, SLOT(onHiddenLayerValueChanged(int)));
         itemLayout->addWidget(spinBox);
 
         // Add a label for "neurons" with white text
@@ -683,7 +683,7 @@ void MainWindow::onRemoveHiddenLayerClicked()
 void MainWindow::onHiddenLayerValueChanged(int value)
 {
     // Get the layer index from the sender
-    QSpinBox* spinBox = qobject_cast<QSpinBox*>(sender());
+    QSpinBox* spinBox = qobject_cast<QSpinBox*>(static_cast<QObject*>(sender()));
     if (spinBox) {
         int layerIndex = spinBox->property("layerIndex").toInt();
         if (layerIndex >= 0 && layerIndex < static_cast<int>(hiddenLayerSizes.size())) {
@@ -707,11 +707,11 @@ void MainWindow::createMLPFromUIConfig()
     worker = new TrainingWorker(mlp);
     worker->moveToThread(&workerThread);
 
-    // Connect signals and slots
-    connect(worker, &TrainingWorker::progressUpdated, this, &MainWindow::onTrainingProgressUpdated);
-    connect(worker, &TrainingWorker::epochCompleted, this, &MainWindow::onEpochCompleted);
-    connect(worker, &TrainingWorker::trainingComplete, this, &MainWindow::onTrainingComplete);
-    connect(worker, &TrainingWorker::evaluationComplete, this, &MainWindow::onEvaluationComplete);
+    // Connect signals and slots using Qt6 syntax
+    connect(worker, SIGNAL(progressUpdated(int, int, float)), this, SLOT(onTrainingProgressUpdated(int, int, float)));
+    connect(worker, SIGNAL(epochCompleted(int, float, float)), this, SLOT(onEpochCompleted(int, float, float)));
+    connect(worker, SIGNAL(trainingComplete(float)), this, SLOT(onTrainingComplete(float)));
+    connect(worker, SIGNAL(evaluationComplete(float, int, int, int, int)), this, SLOT(onEvaluationComplete(float, int, int, int, int)));
 }
 
 void MainWindow::on_btnTrain_clicked()
