@@ -99,6 +99,31 @@ void MainWindow::initializeUI()
     // Setup hidden layers configuration UI
     setupHiddenLayersUI();
 
+    // Create and set up the hidden layer selector for visualization
+    hiddenLayerSelector = new QComboBox();
+    hiddenLayerSelector->addItem("Hidden Layer 1");
+    hiddenLayerSelector->setStyleSheet("background-color: white; color: black; font-weight: bold;");
+    connect(hiddenLayerSelector, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onHiddenLayerSelectorChanged);
+
+    // Add the selector to the Hidden Layer visualization tab
+    QWidget* hiddenLayerTab = ui->tabWidget->widget(2); // Assuming Hidden Layer tab is at index 2
+    QVBoxLayout* hiddenLayerLayout = qobject_cast<QVBoxLayout*>(hiddenLayerTab->layout());
+    if (!hiddenLayerLayout) {
+        hiddenLayerLayout = new QVBoxLayout(hiddenLayerTab);
+        hiddenLayerLayout->addWidget(ui->gvHiddenLayer);
+    }
+
+    QHBoxLayout* selectorLayout = new QHBoxLayout();
+    QLabel* selectorLabel = new QLabel("Select Hidden Layer:");
+    selectorLabel->setStyleSheet("color: white; font-weight: bold;");
+    selectorLayout->addWidget(selectorLabel);
+    selectorLayout->addWidget(hiddenLayerSelector);
+    selectorLayout->addStretch();
+
+    // Insert the selector layout at the top of the tab
+    hiddenLayerLayout->insertLayout(0, selectorLayout);
+
     // Disable buttons that require data
     ui->btnTrain->setEnabled(false);
     ui->btnEvaluate->setEnabled(false);
@@ -108,6 +133,9 @@ void MainWindow::initializeUI()
     // Set progress bar
     ui->progressBar->setValue(0);
     ui->progressBar->setVisible(false);
+
+    // Initialize current hidden layer index
+    currentHiddenLayerIndex = 0;
 }
 
 void MainWindow::loadImagesFromDir(const QString& dir, QStringList& imageList)
@@ -233,71 +261,136 @@ void MainWindow::updateHiddenLayerVisualization()
         return;
     }
 
-    // Create a layout for visualizing all hidden layers
-    int totalWidth = 0;
-    int maxHeight = 0;
-    std::vector<QGraphicsItemGroup*> layerGroups;
-
-    // Process each hidden layer
-    for (int layerIdx = 0; layerIdx < numHiddenLayers; ++layerIdx) {
-        // Get hidden layer
-        const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
-        const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
-
-        // Create a group for this layer
-        QGraphicsItemGroup* layerGroup = hiddenLayerScene->createItemGroup({});
-
-        // Add layer title
-        QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
-        layerTitle->setPos(0, 0);
-        layerGroup->addToGroup(layerTitle);
-
-        // Determine grid size for this layer
-        int hiddenSize = hiddenLayer.getOutputSize();
-        int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
-
-        // Calculate cell size
-        int cellSize = 20; // Fixed size for consistency
-
-        // Draw activations as a grid of colored squares
-        for (int i = 0; i < hiddenSize; ++i) {
-            int row = i / gridSize;
-            int col = i % gridSize;
-
-            // Map activation to color intensity (0-255)
-            int intensity = static_cast<int>(activations(i) * 255);
-            QColor color(intensity, intensity, intensity);
-
-            // Create rectangle
-            QGraphicsRectItem* rect = hiddenLayerScene->addRect(
-                col * cellSize,
-                row * cellSize + layerTitle->boundingRect().height() + 10,
-                cellSize,
-                cellSize
-            );
-            rect->setBrush(QBrush(color));
-            rect->setPen(QPen(Qt::black));
-            layerGroup->addToGroup(rect);
+    // Update the hidden layer selector if needed
+    if (hiddenLayerSelector->count() != numHiddenLayers) {
+        hiddenLayerSelector->clear();
+        for (int i = 0; i < numHiddenLayers; ++i) {
+            hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
         }
-
-        // Calculate layer dimensions
-        int layerWidth = gridSize * cellSize;
-        int layerHeight = gridSize * cellSize + layerTitle->boundingRect().height() + 10;
-
-        // Position the layer group
-        layerGroup->setPos(totalWidth, 0);
-
-        // Update total width and max height
-        totalWidth += layerWidth + 50; // Add spacing between layers
-        maxHeight = std::max(maxHeight, layerHeight);
-
-        // Store the group
-        layerGroups.push_back(layerGroup);
     }
 
+    // Make sure the current index is valid
+    if (currentHiddenLayerIndex >= numHiddenLayers) {
+        currentHiddenLayerIndex = 0;
+        hiddenLayerSelector->setCurrentIndex(currentHiddenLayerIndex);
+    }
+
+    // Get the selected hidden layer
+    int layerIdx = currentHiddenLayerIndex;
+    const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
+    const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
+
+    // Add layer title with larger font and better visibility
+    QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
+    layerTitle->setDefaultTextColor(Qt::white);
+    QFont titleFont = layerTitle->font();
+    titleFont.setPointSize(14);
+    titleFont.setBold(true);
+    layerTitle->setFont(titleFont);
+    layerTitle->setPos(10, 10);
+
+    // Add layer info
+    QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(
+        QString("Neurons: %1, Activation: %2")
+            .arg(hiddenLayer.getOutputSize())
+            .arg(QString::fromStdString(hiddenLayer.getActivationFunction()))
+    );
+    layerInfo->setDefaultTextColor(Qt::white);
+    layerInfo->setPos(10, layerTitle->boundingRect().height() + 20);
+
+    // Determine grid size for this layer
+    int hiddenSize = hiddenLayer.getOutputSize();
+    int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
+
+    // Calculate cell size - make it larger for better visibility
+    int cellSize = 30; // Larger size for better visibility
+
+    // Create a background for the grid
+    QGraphicsRectItem* gridBackground = hiddenLayerScene->addRect(
+        10,
+        layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 30,
+        gridSize * cellSize + 20,
+        gridSize * cellSize + 20
+    );
+    gridBackground->setBrush(QBrush(QColor(60, 60, 60)));
+    gridBackground->setPen(QPen(Qt::white));
+
+    // Draw activations as a grid of colored squares
+    for (int i = 0; i < hiddenSize; ++i) {
+        int row = i / gridSize;
+        int col = i % gridSize;
+
+        // Map activation to color intensity (0-255)
+        int intensity = static_cast<int>(activations(i) * 255);
+        QColor color(intensity, intensity, intensity);
+
+        // Create rectangle
+        QGraphicsRectItem* rect = hiddenLayerScene->addRect(
+            col * cellSize + 20,
+            row * cellSize + layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 40,
+            cellSize - 2,
+            cellSize - 2
+        );
+        rect->setBrush(QBrush(color));
+        rect->setPen(QPen(Qt::black));
+
+        // Add tooltip with neuron index and activation value
+        QGraphicsTextItem* tooltip = hiddenLayerScene->addText(
+            QString("Neuron %1: %2").arg(i).arg(activations(i), 0, 'f', 4)
+        );
+        tooltip->setVisible(false);
+        tooltip->setDefaultTextColor(Qt::white);
+        tooltip->setZValue(1); // Ensure it appears above other items
+
+        // Store tooltip in rect's data
+        rect->setData(0, QVariant::fromValue(tooltip));
+    }
+
+    // Add a legend
+    QGraphicsRectItem* legendBackground = hiddenLayerScene->addRect(
+        10,
+        layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 60,
+        300,
+        80
+    );
+    legendBackground->setBrush(QBrush(QColor(40, 40, 40)));
+    legendBackground->setPen(QPen(Qt::white));
+
+    QGraphicsTextItem* legendTitle = hiddenLayerScene->addText("Activation Legend:");
+    legendTitle->setDefaultTextColor(Qt::white);
+    legendTitle->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 70);
+
+    // Create a gradient legend
+    for (int i = 0; i < 256; ++i) {
+        QGraphicsRectItem* legendItem = hiddenLayerScene->addRect(
+            20 + i,
+            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 100,
+            1,
+            20
+        );
+        legendItem->setBrush(QBrush(QColor(i, i, i)));
+        legendItem->setPen(Qt::NoPen);
+    }
+
+    QGraphicsTextItem* zeroText = hiddenLayerScene->addText("0.0");
+    zeroText->setDefaultTextColor(Qt::white);
+    zeroText->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+
+    QGraphicsTextItem* oneText = hiddenLayerScene->addText("1.0");
+    oneText->setDefaultTextColor(Qt::white);
+    oneText->setPos(270, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+
     // Set scene rect
-    hiddenLayerScene->setSceneRect(0, 0, totalWidth, maxHeight);
+    int sceneWidth = std::max(gridSize * cellSize + 40, 320);
+    int sceneHeight = layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 150;
+    hiddenLayerScene->setSceneRect(0, 0, sceneWidth, sceneHeight);
     ui->gvHiddenLayer->fitInView(hiddenLayerScene->sceneRect(), Qt::KeepAspectRatio);
+}
+
+void MainWindow::onHiddenLayerSelectorChanged(int index)
+{
+    currentHiddenLayerIndex = index;
+    updateHiddenLayerVisualization();
 }
 
 void MainWindow::updateOutputLayerVisualization()
@@ -522,17 +615,24 @@ void MainWindow::updateHiddenLayersUIFromModel()
     // Clear the list widget
     hiddenLayersList->clear();
 
+    // Set background color for the list widget to dark gray for better contrast
+    hiddenLayersList->setStyleSheet("QListWidget { background-color: #2D2D30; }");
+
     // Add items for each hidden layer
     for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
         QListWidgetItem* item = new QListWidgetItem();
+        // Set a minimum height for the item to ensure it's clearly visible
+        item->setSizeHint(QSize(item->sizeHint().width(), 40));
         hiddenLayersList->addItem(item);
 
         // Create a widget for the item
         QWidget* itemWidget = new QWidget();
+        itemWidget->setStyleSheet("background-color: #3E3E42;"); // Slightly lighter than the list background
         QHBoxLayout* itemLayout = new QHBoxLayout(itemWidget);
 
-        // Add a label
-        QLabel* label = new QLabel(QString("Layer %1:").arg(i + 1));
+        // Add a label with clear title and white text
+        QLabel* label = new QLabel(QString("Hidden Layer %1:").arg(i + 1));
+        label->setStyleSheet("color: white; font-weight: bold;");
         itemLayout->addWidget(label);
 
         // Add a spin box for the number of neurons
@@ -541,11 +641,14 @@ void MainWindow::updateHiddenLayersUIFromModel()
         spinBox->setMaximum(1024);
         spinBox->setValue(hiddenLayerSizes[i]);
         spinBox->setProperty("layerIndex", static_cast<int>(i));
+        // Style the spinbox for better visibility
+        spinBox->setStyleSheet("background-color: white; color: black;");
         connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onHiddenLayerValueChanged);
         itemLayout->addWidget(spinBox);
 
-        // Add a label for "neurons"
+        // Add a label for "neurons" with white text
         QLabel* neuronsLabel = new QLabel("neurons");
+        neuronsLabel->setStyleSheet("color: white;");
         itemLayout->addWidget(neuronsLabel);
 
         // Set the item widget

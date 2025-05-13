@@ -58,6 +58,7 @@ private slots:
     void onAddHiddenLayerClicked();
     void onRemoveHiddenLayerClicked();
     void onHiddenLayerValueChanged(int value);
+    void onHiddenLayerSelectorChanged(int index);
 
 private:
     Ui::MainWindow *ui;
@@ -91,6 +92,10 @@ private:
     QPushButton* addHiddenLayerButton;
     QPushButton* removeHiddenLayerButton;
     std::vector<int> hiddenLayerSizes;
+
+    // Hidden layer visualization selector
+    QComboBox* hiddenLayerSelector;
+    int currentHiddenLayerIndex;
 
     // Initialize UI
     void initializeUI();
