@@ -261,12 +261,10 @@ void MainWindow::updateHiddenLayerVisualization()
         return;
     }
 
-    // Update the hidden layer selector if needed
-    if (hiddenLayerSelector->count() != numHiddenLayers) {
-        hiddenLayerSelector->clear();
-        for (int i = 0; i < numHiddenLayers; ++i) {
-            hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
-        }
+    // Always update the hidden layer selector to ensure it's in sync with the model
+    hiddenLayerSelector->clear();
+    for (int i = 0; i < numHiddenLayers; ++i) {
+        hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
     }
 
     // Make sure the current index is valid
@@ -629,10 +627,12 @@ void MainWindow::updateHiddenLayersUIFromModel()
         QWidget* itemWidget = new QWidget();
         itemWidget->setStyleSheet("background-color: #3E3E42;"); // Slightly lighter than the list background
         QHBoxLayout* itemLayout = new QHBoxLayout(itemWidget);
+        itemLayout->setContentsMargins(10, 5, 10, 5); // Add some padding
 
         // Add a label with clear title and white text
         QLabel* label = new QLabel(QString("Hidden Layer %1:").arg(i + 1));
         label->setStyleSheet("color: white; font-weight: bold;");
+        label->setMinimumWidth(100); // Ensure the label has enough width to display the text
         itemLayout->addWidget(label);
 
         // Add a spin box for the number of neurons
@@ -667,6 +667,14 @@ void MainWindow::onAddHiddenLayerClicked()
 
     // Update the UI
     updateHiddenLayersUIFromModel();
+
+    // Update the hidden layer selector in the visualization tab
+    if (hiddenLayerSelector) {
+        hiddenLayerSelector->clear();
+        for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
+            hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
+        }
+    }
 }
 
 void MainWindow::onRemoveHiddenLayerClicked()
@@ -677,6 +685,14 @@ void MainWindow::onRemoveHiddenLayerClicked()
 
         // Update the UI
         updateHiddenLayersUIFromModel();
+
+        // Update the hidden layer selector in the visualization tab
+        if (hiddenLayerSelector) {
+            hiddenLayerSelector->clear();
+            for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
+                hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
+            }
+        }
     }
 }
 
@@ -828,6 +844,14 @@ void MainWindow::on_btnImportModel_clicked()
             hiddenLayerSizes = mlp->getHiddenLayerSizes();
             updateHiddenLayersUIFromModel();
 
+            // Update the hidden layer selector in the visualization tab
+            if (hiddenLayerSelector) {
+                hiddenLayerSelector->clear();
+                for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
+                    hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
+                }
+            }
+
             // Set activation function
             if (mlp->getNumHiddenLayers() > 0) {
                 ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
@@ -865,6 +889,14 @@ void MainWindow::on_btnImportModel_clicked()
             // Update UI with the loaded model's configuration
             hiddenLayerSizes = mlp->getHiddenLayerSizes();
             updateHiddenLayersUIFromModel();
+
+            // Update the hidden layer selector in the visualization tab
+            if (hiddenLayerSelector) {
+                hiddenLayerSelector->clear();
+                for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
+                    hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
+                }
+            }
 
             // Set activation function
             if (mlp->getNumHiddenLayers() > 0) {
