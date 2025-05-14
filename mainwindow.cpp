@@ -202,10 +202,24 @@ void MainWindow::updateCurrentImage()
     ui->lblImageInfo->setText(imageInfo);
 
     // Make prediction
-    float prediction = mlp->predict(currentImage);
-    QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
-                                .arg(prediction, 0, 'f', 4);
-    ui->lblPrediction->setText(predictionText);
+    try {
+        if (mlp) {
+            float prediction = mlp->predict(currentImage);
+            QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
+                                    .arg(prediction, 0, 'f', 4);
+            ui->lblPrediction->setText(predictionText);
+        } else {
+            ui->lblPrediction->setText("No model available");
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during prediction
+        qWarning() << "Exception in prediction:" << e.what();
+        ui->lblPrediction->setText("Error in prediction");
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in prediction";
+        ui->lblPrediction->setText("Error in prediction");
+    }
 
     // Update layer visualizations
     updateLayerVisualizations();
@@ -213,176 +227,315 @@ void MainWindow::updateCurrentImage()
 
 void MainWindow::updateLayerVisualizations()
 {
-    if (!currentImage.isNull()) {
-        updateInputLayerVisualization();
-        updateHiddenLayerVisualization();
-        updateOutputLayerVisualization();
+    try {
+        if (!currentImage.isNull() && mlp) {
+            updateInputLayerVisualization();
+            updateHiddenLayerVisualization();
+            updateOutputLayerVisualization();
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during visualization
+        qWarning() << "Exception in updateLayerVisualizations:" << e.what();
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateLayerVisualizations";
     }
 }
 
 void MainWindow::updateInputLayerVisualization()
 {
-    // Clear scene
-    inputLayerScene->clear();
+    try {
+        // Clear scene
+        if (inputLayerScene) {
+            inputLayerScene->clear();
+        } else {
+            return; // Safety check
+        }
 
-    // Add current image to scene
-    QImage processedImage = currentImage;
-    if (processedImage.format() != QImage::Format_Grayscale8) {
-        processedImage = processedImage.convertToFormat(QImage::Format_Grayscale8);
+        if (currentImage.isNull()) {
+            return;
+        }
+
+        // Add current image to scene
+        QImage processedImage = currentImage;
+        if (processedImage.format() != QImage::Format_Grayscale8) {
+            processedImage = processedImage.convertToFormat(QImage::Format_Grayscale8);
+        }
+
+        if (processedImage.width() != 512 || processedImage.height() != 512) {
+            processedImage = processedImage.scaled(512, 512, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        }
+
+        QGraphicsPixmapItem* pixmapItem = inputLayerScene->addPixmap(QPixmap::fromImage(processedImage));
+        if (pixmapItem) {
+            inputLayerScene->setSceneRect(pixmapItem->boundingRect());
+            if (ui && ui->gvInputLayer) {
+                ui->gvInputLayer->fitInView(inputLayerScene->sceneRect(), Qt::KeepAspectRatio);
+            }
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during visualization
+        qWarning() << "Exception in updateInputLayerVisualization:" << e.what();
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateInputLayerVisualization";
     }
-
-    if (processedImage.width() != 512 || processedImage.height() != 512) {
-        processedImage = processedImage.scaled(512, 512, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    }
-
-    QGraphicsPixmapItem* pixmapItem = inputLayerScene->addPixmap(QPixmap::fromImage(processedImage));
-    inputLayerScene->setSceneRect(pixmapItem->boundingRect());
-    ui->gvInputLayer->fitInView(inputLayerScene->sceneRect(), Qt::KeepAspectRatio);
 }
 
 void MainWindow::updateHiddenLayerVisualization()
 {
     // Clear scene
-    hiddenLayerScene->clear();
+    if (hiddenLayerScene) {
+        hiddenLayerScene->clear();
+    } else {
+        return; // Safety check
+    }
 
-    if (currentImage.isNull()) {
+    if (currentImage.isNull() || !mlp) {
         return;
     }
 
-    // Get hidden layer activations
-    Eigen::VectorXf input = mlp->preprocessImage(currentImage);
-    mlp->forward(input);
+    try {
+        // Get hidden layer activations
+        Eigen::VectorXf input = mlp->preprocessImage(currentImage);
+        mlp->forward(input);
 
-    // Get number of hidden layers
-    int numHiddenLayers = mlp->getNumHiddenLayers();
-    if (numHiddenLayers == 0) {
-        // No hidden layers to visualize
-        hiddenLayerScene->addText("No hidden layers in this model");
+        // Get number of hidden layers
+        int numHiddenLayers = mlp->getNumHiddenLayers();
+        if (numHiddenLayers == 0) {
+            // No hidden layers to visualize
+            hiddenLayerScene->addText("No hidden layers in this model");
+            return;
+        }
+
+        // Update the hidden layer selector if it exists
+        if (hiddenLayerSelector) {
+            // Block signals temporarily to prevent recursive calls
+            hiddenLayerSelector->blockSignals(true);
+
+            hiddenLayerSelector->clear();
+            for (int i = 0; i < numHiddenLayers; ++i) {
+                hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
+            }
+
+            // Make sure the current index is valid
+            if (currentHiddenLayerIndex >= numHiddenLayers) {
+                currentHiddenLayerIndex = 0;
+            }
+
+            if (hiddenLayerSelector->count() > 0) {
+                hiddenLayerSelector->setCurrentIndex(currentHiddenLayerIndex);
+            }
+
+            hiddenLayerSelector->blockSignals(false);
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during processing
+        qWarning() << "Exception in updateHiddenLayerVisualization:" << e.what();
+        return;
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateHiddenLayerVisualization";
         return;
     }
 
-    // Always update the hidden layer selector to ensure it's in sync with the model
-    hiddenLayerSelector->clear();
-    for (int i = 0; i < numHiddenLayers; ++i) {
-        hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
-    }
+    try {
+        // Safety checks
+        if (!mlp || mlp->getLayers().empty() || currentHiddenLayerIndex < 0) {
+            return;
+        }
 
-    // Make sure the current index is valid
-    if (currentHiddenLayerIndex >= numHiddenLayers) {
-        currentHiddenLayerIndex = 0;
-        hiddenLayerSelector->setCurrentIndex(currentHiddenLayerIndex);
-    }
+        // Get the selected hidden layer
+        int layerIdx = currentHiddenLayerIndex;
+        if (layerIdx >= static_cast<int>(mlp->getLayers().size()) - 1) {
+            // Invalid layer index
+            hiddenLayerScene->addText("Invalid layer index");
+            return;
+        }
 
-    // Get the selected hidden layer
-    int layerIdx = currentHiddenLayerIndex;
-    const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
-    const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
+        const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
+        const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
 
-    // Add layer title with larger font and better visibility
-    QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
-    layerTitle->setDefaultTextColor(Qt::white);
-    QFont titleFont = layerTitle->font();
-    titleFont.setPointSize(14);
-    titleFont.setBold(true);
-    layerTitle->setFont(titleFont);
-    layerTitle->setPos(10, 10);
+        if (activations.size() == 0) {
+            // No activations available
+            hiddenLayerScene->addText("No activations available for this layer");
+            return;
+        }
 
-    // Add layer info
-    QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(
-        QString("Neurons: %1, Activation: %2")
-            .arg(hiddenLayer.getOutputSize())
-            .arg(QString::fromStdString(hiddenLayer.getActivationFunction()))
-    );
-    layerInfo->setDefaultTextColor(Qt::white);
-    layerInfo->setPos(10, layerTitle->boundingRect().height() + 20);
+        // Add layer title with larger font and better visibility
+        QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
+        layerTitle->setDefaultTextColor(Qt::white);
+        QFont titleFont = layerTitle->font();
+        titleFont.setPointSize(14);
+        titleFont.setBold(true);
+        layerTitle->setFont(titleFont);
+        layerTitle->setPos(10, 10);
 
-    // Determine grid size for this layer
-    int hiddenSize = hiddenLayer.getOutputSize();
-    int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
-
-    // Calculate cell size - make it larger for better visibility
-    int cellSize = 30; // Larger size for better visibility
-
-    // Create a background for the grid
-    QGraphicsRectItem* gridBackground = hiddenLayerScene->addRect(
-        10,
-        layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 30,
-        gridSize * cellSize + 20,
-        gridSize * cellSize + 20
-    );
-    gridBackground->setBrush(QBrush(QColor(60, 60, 60)));
-    gridBackground->setPen(QPen(Qt::white));
-
-    // Draw activations as a grid of colored squares
-    for (int i = 0; i < hiddenSize; ++i) {
-        int row = i / gridSize;
-        int col = i % gridSize;
-
-        // Map activation to color intensity (0-255)
-        int intensity = static_cast<int>(activations(i) * 255);
-        QColor color(intensity, intensity, intensity);
-
-        // Create rectangle
-        QGraphicsRectItem* rect = hiddenLayerScene->addRect(
-            col * cellSize + 20,
-            row * cellSize + layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 40,
-            cellSize - 2,
-            cellSize - 2
+        // Add layer info
+        QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(
+            QString("Neurons: %1, Activation: %2")
+                .arg(hiddenLayer.getOutputSize())
+                .arg(QString::fromStdString(hiddenLayer.getActivationFunction()))
         );
-        rect->setBrush(QBrush(color));
-        rect->setPen(QPen(Qt::black));
+        layerInfo->setDefaultTextColor(Qt::white);
+        layerInfo->setPos(10, layerTitle->boundingRect().height() + 20);
 
-        // Add tooltip with neuron index and activation value
-        QGraphicsTextItem* tooltip = hiddenLayerScene->addText(
-            QString("Neuron %1: %2").arg(i).arg(activations(i), 0, 'f', 4)
+        // Determine grid size for this layer
+        int hiddenSize = hiddenLayer.getOutputSize();
+        int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
+
+        // Calculate cell size - make it larger for better visibility
+        int cellSize = 30; // Larger size for better visibility
+
+        // Create a background for the grid
+        QGraphicsRectItem* gridBackground = hiddenLayerScene->addRect(
+            10,
+            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 30,
+            gridSize * cellSize + 20,
+            gridSize * cellSize + 20
         );
-        tooltip->setVisible(false);
-        tooltip->setDefaultTextColor(Qt::white);
-        tooltip->setZValue(1); // Ensure it appears above other items
+        gridBackground->setBrush(QBrush(QColor(60, 60, 60)));
+        gridBackground->setPen(QPen(Qt::white));
 
-        // Store tooltip in rect's data
-        rect->setData(0, QVariant::fromValue(tooltip));
+        // Draw activations as a grid of colored squares
+        for (int i = 0; i < hiddenSize && i < activations.size(); ++i) {
+            int row = i / gridSize;
+            int col = i % gridSize;
+
+            // Map activation to color intensity (0-255)
+            float activation_value = activations(i);
+            // Clamp activation value to [0, 1] to avoid out-of-range values
+            activation_value = std::max(0.0f, std::min(1.0f, activation_value));
+            int intensity = static_cast<int>(activation_value * 255);
+            QColor color(intensity, intensity, intensity);
+
+            // Create rectangle
+            QGraphicsRectItem* rect = hiddenLayerScene->addRect(
+                col * cellSize + 20,
+                row * cellSize + layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 40,
+                cellSize - 2,
+                cellSize - 2
+            );
+            rect->setBrush(QBrush(color));
+            rect->setPen(QPen(Qt::black));
+
+            // Add tooltip with neuron index and activation value
+            QGraphicsTextItem* tooltip = hiddenLayerScene->addText(
+                QString("Neuron %1: %2").arg(i).arg(activations(i), 0, 'f', 4)
+            );
+            tooltip->setVisible(false);
+            tooltip->setDefaultTextColor(Qt::white);
+            tooltip->setZValue(1); // Ensure it appears above other items
+
+            // Store tooltip in rect's data
+            rect->setData(0, QVariant::fromValue(tooltip));
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during processing
+        qWarning() << "Exception in updateHiddenLayerVisualization (rendering):" << e.what();
+        return;
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateHiddenLayerVisualization (rendering)";
+        return;
     }
 
-    // Add a legend
-    QGraphicsRectItem* legendBackground = hiddenLayerScene->addRect(
-        10,
-        layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 60,
-        300,
-        80
-    );
-    legendBackground->setBrush(QBrush(QColor(40, 40, 40)));
-    legendBackground->setPen(QPen(Qt::white));
+    try {
+        // Safety checks
+        if (!hiddenLayerScene) {
+            return;
+        }
 
-    QGraphicsTextItem* legendTitle = hiddenLayerScene->addText("Activation Legend:");
-    legendTitle->setDefaultTextColor(Qt::white);
-    legendTitle->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 70);
+        // Get references to the title and info items we created earlier
+        QList<QGraphicsItem*> items = hiddenLayerScene->items();
+        QGraphicsTextItem* layerTitle = nullptr;
+        QGraphicsTextItem* layerInfo = nullptr;
 
-    // Create a gradient legend
-    for (int i = 0; i < 256; ++i) {
-        QGraphicsRectItem* legendItem = hiddenLayerScene->addRect(
-            20 + i,
-            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 100,
-            1,
-            20
+        for (QGraphicsItem* item : items) {
+            QGraphicsTextItem* textItem = dynamic_cast<QGraphicsTextItem*>(item);
+            if (textItem) {
+                QString text = textItem->toPlainText();
+                if (text.startsWith("Hidden Layer")) {
+                    layerTitle = textItem;
+                } else if (text.startsWith("Neurons:")) {
+                    layerInfo = textItem;
+                }
+
+                if (layerTitle && layerInfo) {
+                    break;
+                }
+            }
+        }
+
+        if (!layerTitle || !layerInfo) {
+            return; // Can't proceed without these items
+        }
+
+        // Get the grid size from earlier
+        int hiddenSize = 0;
+        int gridSize = 0;
+
+        if (mlp && currentHiddenLayerIndex >= 0 &&
+            currentHiddenLayerIndex < static_cast<int>(mlp->getLayers().size())) {
+            const Layer& hiddenLayer = mlp->getLayers()[currentHiddenLayerIndex];
+            hiddenSize = hiddenLayer.getOutputSize();
+            gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
+        } else {
+            return; // Can't proceed without valid layer info
+        }
+
+        // Calculate cell size - make it larger for better visibility
+        int cellSize = 30; // Larger size for better visibility
+
+        // Add a legend
+        QGraphicsRectItem* legendBackground = hiddenLayerScene->addRect(
+            10,
+            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 60,
+            300,
+            80
         );
-        legendItem->setBrush(QBrush(QColor(i, i, i)));
-        legendItem->setPen(Qt::NoPen);
+        legendBackground->setBrush(QBrush(QColor(40, 40, 40)));
+        legendBackground->setPen(QPen(Qt::white));
+
+        QGraphicsTextItem* legendTitle = hiddenLayerScene->addText("Activation Legend:");
+        legendTitle->setDefaultTextColor(Qt::white);
+        legendTitle->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 70);
+
+        // Create a gradient legend
+        for (int i = 0; i < 256; ++i) {
+            QGraphicsRectItem* legendItem = hiddenLayerScene->addRect(
+                20 + i,
+                layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 100,
+                1,
+                20
+            );
+            legendItem->setBrush(QBrush(QColor(i, i, i)));
+            legendItem->setPen(Qt::NoPen);
+        }
+
+        QGraphicsTextItem* zeroText = hiddenLayerScene->addText("0.0");
+        zeroText->setDefaultTextColor(Qt::white);
+        zeroText->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+
+        QGraphicsTextItem* oneText = hiddenLayerScene->addText("1.0");
+        oneText->setDefaultTextColor(Qt::white);
+        oneText->setPos(270, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+
+        // Set scene rect
+        int sceneWidth = std::max(gridSize * cellSize + 40, 320);
+        int sceneHeight = layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 150;
+        hiddenLayerScene->setSceneRect(0, 0, sceneWidth, sceneHeight);
+
+        if (ui && ui->gvHiddenLayer) {
+            ui->gvHiddenLayer->fitInView(hiddenLayerScene->sceneRect(), Qt::KeepAspectRatio);
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during legend creation
+        qWarning() << "Exception in updateHiddenLayerVisualization (legend):" << e.what();
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateHiddenLayerVisualization (legend)";
     }
-
-    QGraphicsTextItem* zeroText = hiddenLayerScene->addText("0.0");
-    zeroText->setDefaultTextColor(Qt::white);
-    zeroText->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
-
-    QGraphicsTextItem* oneText = hiddenLayerScene->addText("1.0");
-    oneText->setDefaultTextColor(Qt::white);
-    oneText->setPos(270, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
-
-    // Set scene rect
-    int sceneWidth = std::max(gridSize * cellSize + 40, 320);
-    int sceneHeight = layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 150;
-    hiddenLayerScene->setSceneRect(0, 0, sceneWidth, sceneHeight);
-    ui->gvHiddenLayer->fitInView(hiddenLayerScene->sceneRect(), Qt::KeepAspectRatio);
 }
 
 void MainWindow::onHiddenLayerSelectorChanged(int index)
@@ -393,81 +546,103 @@ void MainWindow::onHiddenLayerSelectorChanged(int index)
 
 void MainWindow::updateOutputLayerVisualization()
 {
-    // Clear scene
-    outputLayerScene->clear();
-
-    if (currentImage.isNull()) {
-        return;
-    }
-
-    // Get output layer (last layer in the network)
-    const Layer& outputLayer = mlp->getLayers().back();
-    const Eigen::VectorXf& output = outputLayer.getLastOutput();
-    const Eigen::VectorXf& z = outputLayer.getLastZ();
-
-    // Create text items
-    QString rawOutput = QString("Raw output (z): %1").arg(z(0), 0, 'f', 4);
-    QString activatedOutput = QString("Activated output (sigmoid): %1").arg(output(0), 0, 'f', 4);
-    QString thresholdInfo = QString("Classification threshold: 0.5");
-    QString classification = QString("Classification: %1").arg(output(0) >= 0.5 ? "Object Detected" : "Object Not Detected");
-
-    QGraphicsTextItem* rawOutputItem = outputLayerScene->addText(rawOutput);
-    QGraphicsTextItem* activatedOutputItem = outputLayerScene->addText(activatedOutput);
-    QGraphicsTextItem* thresholdInfoItem = outputLayerScene->addText(thresholdInfo);
-    QGraphicsTextItem* classificationItem = outputLayerScene->addText(classification);
-
-    // Position text items
-    rawOutputItem->setPos(0, 0);
-    activatedOutputItem->setPos(0, 30);
-    thresholdInfoItem->setPos(0, 60);
-    classificationItem->setPos(0, 90);
-
-    // Add visualization of output as a bar
-    int barWidth = 200;
-    int barHeight = 30;
-    int barY = 150;
-
-    // Background bar (0 to 1 range)
-    QGraphicsRectItem* backgroundBar = outputLayerScene->addRect(0, barY, barWidth, barHeight);
-    backgroundBar->setBrush(QBrush(Qt::lightGray));
-
-    // Output value bar
-    int outputBarWidth = static_cast<int>(output(0) * barWidth);
-    QGraphicsRectItem* outputBar = outputLayerScene->addRect(0, barY, outputBarWidth, barHeight);
-    outputBar->setBrush(QBrush(output(0) >= 0.5 ? Qt::green : Qt::red));
-
-    // Threshold line
-    int thresholdX = static_cast<int>(0.5 * barWidth);
-    QGraphicsLineItem* thresholdLine = outputLayerScene->addLine(thresholdX, barY - 10, thresholdX, barY + barHeight + 10);
-    thresholdLine->setPen(QPen(Qt::black, 2));
-
-    // Add labels
-    QGraphicsTextItem* zeroLabel = outputLayerScene->addText("0.0");
-    QGraphicsTextItem* halfLabel = outputLayerScene->addText("0.5");
-    QGraphicsTextItem* oneLabel = outputLayerScene->addText("1.0");
-
-    zeroLabel->setPos(0, barY + barHeight + 10);
-    halfLabel->setPos(thresholdX - 10, barY + barHeight + 10);
-    oneLabel->setPos(barWidth - 20, barY + barHeight + 10);
-
-    // Add network architecture information
-    int numHiddenLayers = mlp->getNumHiddenLayers();
-    QString architectureInfo = QString("Network Architecture: %1 input → ").arg(mlp->getLayers()[0].getInputSize());
-
-    if (numHiddenLayers > 0) {
-        for (int i = 0; i < numHiddenLayers; ++i) {
-            architectureInfo += QString("%1 → ").arg(mlp->getLayers()[i].getOutputSize());
+    try {
+        // Clear scene
+        if (outputLayerScene) {
+            outputLayerScene->clear();
+        } else {
+            return; // Safety check
         }
+
+        if (currentImage.isNull() || !mlp || mlp->getLayers().empty()) {
+            return;
+        }
+
+        // Get output layer (last layer in the network)
+        const Layer& outputLayer = mlp->getLayers().back();
+        const Eigen::VectorXf& output = outputLayer.getLastOutput();
+        const Eigen::VectorXf& z = outputLayer.getLastZ();
+
+        // Safety check for output size
+        if (output.size() == 0 || z.size() == 0) {
+            outputLayerScene->addText("No output available");
+            return;
+        }
+
+        // Create text items
+        QString rawOutput = QString("Raw output (z): %1").arg(z(0), 0, 'f', 4);
+        QString activatedOutput = QString("Activated output (sigmoid): %1").arg(output(0), 0, 'f', 4);
+        QString thresholdInfo = QString("Classification threshold: 0.5");
+        QString classification = QString("Classification: %1").arg(output(0) >= 0.5 ? "Object Detected" : "Object Not Detected");
+
+        QGraphicsTextItem* rawOutputItem = outputLayerScene->addText(rawOutput);
+        QGraphicsTextItem* activatedOutputItem = outputLayerScene->addText(activatedOutput);
+        QGraphicsTextItem* thresholdInfoItem = outputLayerScene->addText(thresholdInfo);
+        QGraphicsTextItem* classificationItem = outputLayerScene->addText(classification);
+
+        // Position text items
+        rawOutputItem->setPos(0, 0);
+        activatedOutputItem->setPos(0, 30);
+        thresholdInfoItem->setPos(0, 60);
+        classificationItem->setPos(0, 90);
+
+        // Add visualization of output as a bar
+        int barWidth = 200;
+        int barHeight = 30;
+        int barY = 150;
+
+        // Background bar (0 to 1 range)
+        QGraphicsRectItem* backgroundBar = outputLayerScene->addRect(0, barY, barWidth, barHeight);
+        backgroundBar->setBrush(QBrush(Qt::lightGray));
+
+        // Output value bar - clamp output to [0, 1] range
+        float outputValue = std::max(0.0f, std::min(1.0f, output(0)));
+        int outputBarWidth = static_cast<int>(outputValue * barWidth);
+        QGraphicsRectItem* outputBar = outputLayerScene->addRect(0, barY, outputBarWidth, barHeight);
+        outputBar->setBrush(QBrush(outputValue >= 0.5 ? Qt::green : Qt::red));
+
+        // Threshold line
+        int thresholdX = static_cast<int>(0.5 * barWidth);
+        QGraphicsLineItem* thresholdLine = outputLayerScene->addLine(thresholdX, barY - 10, thresholdX, barY + barHeight + 10);
+        thresholdLine->setPen(QPen(Qt::black, 2));
+
+        // Add labels
+        QGraphicsTextItem* zeroLabel = outputLayerScene->addText("0.0");
+        QGraphicsTextItem* halfLabel = outputLayerScene->addText("0.5");
+        QGraphicsTextItem* oneLabel = outputLayerScene->addText("1.0");
+
+        zeroLabel->setPos(0, barY + barHeight + 10);
+        halfLabel->setPos(thresholdX - 10, barY + barHeight + 10);
+        oneLabel->setPos(barWidth - 20, barY + barHeight + 10);
+
+        // Add network architecture information
+        int numHiddenLayers = mlp->getNumHiddenLayers();
+        QString architectureInfo = QString("Network Architecture: %1 input → ").arg(mlp->getLayers()[0].getInputSize());
+
+        if (numHiddenLayers > 0) {
+            for (int i = 0; i < numHiddenLayers; ++i) {
+                architectureInfo += QString("%1 → ").arg(mlp->getLayers()[i].getOutputSize());
+            }
+        }
+
+        architectureInfo += QString("%1 output").arg(mlp->getLayers().back().getOutputSize());
+
+        QGraphicsTextItem* architectureItem = outputLayerScene->addText(architectureInfo);
+        architectureItem->setPos(0, barY + barHeight + 50);
+
+        // Set scene rect
+        outputLayerScene->setSceneRect(0, 0, barWidth + 50, barY + barHeight + 100);
+
+        if (ui && ui->gvOutputLayer) {
+            ui->gvOutputLayer->fitInView(outputLayerScene->sceneRect(), Qt::KeepAspectRatio);
+        }
+    } catch (const std::exception& e) {
+        // Handle any exceptions that might occur during visualization
+        qWarning() << "Exception in updateOutputLayerVisualization:" << e.what();
+    } catch (...) {
+        // Catch any other exceptions
+        qWarning() << "Unknown exception in updateOutputLayerVisualization";
     }
-
-    architectureInfo += QString("%1 output").arg(mlp->getLayers().back().getOutputSize());
-
-    QGraphicsTextItem* architectureItem = outputLayerScene->addText(architectureInfo);
-    architectureItem->setPos(0, barY + barHeight + 50);
-
-    // Set scene rect
-    outputLayerScene->setSceneRect(0, 0, barWidth + 50, barY + barHeight + 100);
-    ui->gvOutputLayer->fitInView(outputLayerScene->sceneRect(), Qt::KeepAspectRatio);
 }
 
 void MainWindow::on_btnLoadPositive_clicked()
