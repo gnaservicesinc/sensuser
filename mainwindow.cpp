@@ -90,6 +90,14 @@ void MainWindow::initializeUI()
     ui->cbHiddenActivation->addItem("sigmoid");
     ui->cbHiddenActivation->addItem("relu");
     ui->cbHiddenActivation->addItem("tanh");
+    ui->cbHiddenActivation->addItem("leaky_relu");
+
+    // Set tooltips for activation functions
+    ui->cbHiddenActivation->setItemData(0, "Classic 'S' shaped curve. Good for binary classification outputs.", Qt::ToolTipRole);
+    ui->cbHiddenActivation->setItemData(1, "Outputs the input if positive, otherwise zero. Computationally efficient and helps mitigate vanishing gradients.", Qt::ToolTipRole);
+    ui->cbHiddenActivation->setItemData(2, "Similar to Sigmoid but zero-centered (-1 to 1). Often preferred over Sigmoid in hidden layers.", Qt::ToolTipRole);
+    ui->cbHiddenActivation->setItemData(3, "A variant of ReLU that allows a small, non-zero gradient when the unit is not active, preventing 'dying ReLU' problems.", Qt::ToolTipRole);
+
     ui->sbLearningRate->setValue(0.01);
     ui->sbEpochs->setValue(100);
     ui->sbBatchSize->setValue(10);
@@ -778,13 +786,22 @@ void MainWindow::setupHiddenLayersUI()
     connect(addHiddenLayerButton, SIGNAL(clicked()), this, SLOT(onAddHiddenLayerClicked()));
     connect(removeHiddenLayerButton, SIGNAL(clicked()), this, SLOT(onRemoveHiddenLayerClicked()));
 
-    // Add a default hidden layer with 128 neurons
+    // Add a default hidden layer with 128 neurons and sigmoid activation
     hiddenLayerSizes = {128};
+    hiddenLayerActivations = {"sigmoid"};
     updateHiddenLayersUIFromModel();
 }
 
 void MainWindow::updateHiddenLayersUIFromModel()
 {
+    // Ensure hiddenLayerActivations vector is properly sized
+    while (hiddenLayerActivations.size() < hiddenLayerSizes.size()) {
+        hiddenLayerActivations.push_back("sigmoid"); // Default activation
+    }
+    while (hiddenLayerActivations.size() > hiddenLayerSizes.size()) {
+        hiddenLayerActivations.pop_back();
+    }
+
     // Clear the list widget
     hiddenLayersList->clear();
 
@@ -826,6 +843,25 @@ void MainWindow::updateHiddenLayersUIFromModel()
         neuronsLabel->setStyleSheet("color: white;");
         itemLayout->addWidget(neuronsLabel);
 
+        // Add activation function combo box
+        QComboBox* activationCombo = new QComboBox();
+        activationCombo->addItem("sigmoid");
+        activationCombo->addItem("relu");
+        activationCombo->addItem("tanh");
+        activationCombo->addItem("leaky_relu");
+
+        // Set the current activation function for this layer
+        if (i < hiddenLayerActivations.size()) {
+            activationCombo->setCurrentText(QString::fromStdString(hiddenLayerActivations[i]));
+        } else {
+            activationCombo->setCurrentText("sigmoid"); // Default
+        }
+
+        activationCombo->setProperty("layerIndex", static_cast<int>(i));
+        activationCombo->setStyleSheet("background-color: white; color: black;");
+        connect(activationCombo, SIGNAL(currentTextChanged(QString)), this, SLOT(onHiddenLayerActivationChanged(QString)));
+        itemLayout->addWidget(activationCombo);
+
         // Set the item widget
         hiddenLayersList->setItemWidget(item, itemWidget);
     }
@@ -839,6 +875,10 @@ void MainWindow::onAddHiddenLayerClicked()
     // Add a new hidden layer with the same number of neurons as the last one
     int newLayerSize = hiddenLayerSizes.empty() ? 128 : hiddenLayerSizes.back();
     hiddenLayerSizes.push_back(newLayerSize);
+
+    // Add default activation function for the new layer
+    std::string newActivation = hiddenLayerActivations.empty() ? "sigmoid" : hiddenLayerActivations.back();
+    hiddenLayerActivations.push_back(newActivation);
 
     // Update the UI
     updateHiddenLayersUIFromModel();
@@ -857,6 +897,11 @@ void MainWindow::onRemoveHiddenLayerClicked()
     // Remove the last hidden layer
     if (!hiddenLayerSizes.empty()) {
         hiddenLayerSizes.pop_back();
+
+        // Also remove the corresponding activation function
+        if (!hiddenLayerActivations.empty()) {
+            hiddenLayerActivations.pop_back();
+        }
 
         // Update the UI
         updateHiddenLayersUIFromModel();
@@ -883,14 +928,28 @@ void MainWindow::onHiddenLayerValueChanged(int value)
     }
 }
 
+void MainWindow::onHiddenLayerActivationChanged(const QString& activation)
+{
+    // Get the layer index from the sender
+    QComboBox* comboBox = qobject_cast<QComboBox*>(static_cast<QObject*>(sender()));
+    if (comboBox) {
+        int layerIndex = comboBox->property("layerIndex").toInt();
+        if (layerIndex >= 0 && layerIndex < static_cast<int>(hiddenLayerActivations.size())) {
+            hiddenLayerActivations[layerIndex] = activation.toStdString();
+        }
+    }
+}
+
 void MainWindow::createMLPFromUIConfig()
 {
-    // Get the activation function
-    QString hiddenActivation = ui->cbHiddenActivation->currentText();
+    // Ensure we have activation functions for all layers
+    while (hiddenLayerActivations.size() < hiddenLayerSizes.size()) {
+        hiddenLayerActivations.push_back("sigmoid"); // Default for missing activations
+    }
 
-    // Create a new MLP with the configured hidden layers
+    // Create a new MLP with the configured hidden layers and their individual activation functions
     delete mlp;
-    mlp = new MLP(512 * 512, hiddenLayerSizes, 1, hiddenActivation.toStdString(), "sigmoid");
+    mlp = new MLP(512 * 512, hiddenLayerSizes, 1, hiddenLayerActivations, "sigmoid");
 
     // Update worker
     worker->stop();
@@ -1017,6 +1076,13 @@ void MainWindow::on_btnImportModel_clicked()
 
             // Update UI with the loaded model's configuration
             hiddenLayerSizes = mlp->getHiddenLayerSizes();
+
+            // Extract activation functions from the loaded model
+            hiddenLayerActivations.clear();
+            for (int i = 0; i < mlp->getNumHiddenLayers(); ++i) {
+                hiddenLayerActivations.push_back(mlp->getLayers()[i].getActivationFunction());
+            }
+
             updateHiddenLayersUIFromModel();
 
             // Update the hidden layer selector in the visualization tab
@@ -1027,7 +1093,7 @@ void MainWindow::on_btnImportModel_clicked()
                 }
             }
 
-            // Set activation function
+            // Set activation function (for backward compatibility with the global combo box)
             if (mlp->getNumHiddenLayers() > 0) {
                 ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
             }
@@ -1063,6 +1129,13 @@ void MainWindow::on_btnImportModel_clicked()
 
             // Update UI with the loaded model's configuration
             hiddenLayerSizes = mlp->getHiddenLayerSizes();
+
+            // Extract activation functions from the loaded model
+            hiddenLayerActivations.clear();
+            for (int i = 0; i < mlp->getNumHiddenLayers(); ++i) {
+                hiddenLayerActivations.push_back(mlp->getLayers()[i].getActivationFunction());
+            }
+
             updateHiddenLayersUIFromModel();
 
             // Update the hidden layer selector in the visualization tab
@@ -1073,7 +1146,7 @@ void MainWindow::on_btnImportModel_clicked()
                 }
             }
 
-            // Set activation function
+            // Set activation function (for backward compatibility with the global combo box)
             if (mlp->getNumHiddenLayers() > 0) {
                 ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
             }

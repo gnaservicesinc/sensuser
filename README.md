@@ -44,7 +44,7 @@ The easiest way to build the project is to open the sensuser.pro file in Qt Crea
 
 Future Enhancements [TODO]:
 
-	⁃	Support for more hidden layers, configurable by the user.
+	(✓)	Support for more hidden layers, configurable by the user.
 	⁃	Different activation functions (Tanh, ReLU, Leaky ReLU).
 	⁃	Different optimization algorithms (Adam, RMSprop).
 	⁃	Regularization techniques (L1, L2, Dropout) to prevent overfitting.

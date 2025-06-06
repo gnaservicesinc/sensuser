@@ -43,6 +43,18 @@ public:
         const std::string& outputActivation = "sigmoid");
 
     /**
+     * @brief MLP constructor with multiple hidden layers and different activation functions per layer
+     * @param inputSize Number of input neurons
+     * @param hiddenSizes Vector of neuron counts for each hidden layer
+     * @param outputSize Number of output neurons
+     * @param hiddenActivations Vector of activation functions for each hidden layer
+     * @param outputActivation Activation function for the output layer
+     */
+    MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
+        const std::vector<std::string>& hiddenActivations,
+        const std::string& outputActivation = "sigmoid");
+
+    /**
      * @brief Forward pass through the network
      * @param input Input values
      * @return Output values

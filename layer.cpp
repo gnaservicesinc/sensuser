@@ -51,6 +51,12 @@ void Layer::initializeActivationFunctions()
             return 1.0f - tanhx * tanhx;
         };
     }
+    else if (activationFunctionName == "leaky_relu") {
+        // Leaky ReLU activation function: f(x) = x if x > 0, 0.01*x otherwise
+        activation = [](float x) { return x > 0.0f ? x : 0.01f * x; };
+        // Derivative of Leaky ReLU: f'(x) = 1 if x > 0, 0.01 otherwise
+        activationDerivative = [](float x) { return x > 0.0f ? 1.0f : 0.01f; };
+    }
     else {
         // Default to sigmoid if unknown activation function
         activationFunctionName = "sigmoid";

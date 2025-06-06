@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.andrewjosephsmith.AJLib.LibScrambleArray.sensuser</string>
+	<string>com.andrewjosephsmith.noodlenet-cpp.sensuser</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>

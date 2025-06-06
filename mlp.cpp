@@ -1,5 +1,6 @@
 #include "mlp.h"
 #include <cmath>
+#include <stdexcept>
 #include <QJsonArray>
 #include <QJsonDocument>
 
@@ -17,7 +18,7 @@ MLP::MLP(int inputSize, int hiddenSize, int outputSize,
 
 MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
          const std::string& hiddenActivation, const std::string& outputActivation)
-    : inputSize(inputSize), hiddenSizes(hiddenSizes), outputSize(outputSize)
+    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes)
 {
     if (hiddenSizes.empty()) {
         // If no hidden layers, create a direct input-to-output layer
@@ -29,6 +30,31 @@ MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
         // Create additional hidden layers
         for (size_t i = 1; i < hiddenSizes.size(); ++i) {
             layers.push_back(Layer(hiddenSizes[i-1], hiddenSizes[i], hiddenActivation));
+        }
+
+        // Create output layer (last hidden to output)
+        layers.push_back(Layer(hiddenSizes.back(), outputSize, outputActivation));
+    }
+}
+
+MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
+         const std::vector<std::string>& hiddenActivations, const std::string& outputActivation)
+    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes)
+{
+    if (hiddenSizes.size() != hiddenActivations.size()) {
+        throw std::invalid_argument("Number of hidden layer sizes must match number of activation functions");
+    }
+
+    if (hiddenSizes.empty()) {
+        // If no hidden layers, create a direct input-to-output layer
+        layers.push_back(Layer(inputSize, outputSize, outputActivation));
+    } else {
+        // Create first hidden layer (input to first hidden)
+        layers.push_back(Layer(inputSize, hiddenSizes[0], hiddenActivations[0]));
+
+        // Create additional hidden layers
+        for (size_t i = 1; i < hiddenSizes.size(); ++i) {
+            layers.push_back(Layer(hiddenSizes[i-1], hiddenSizes[i], hiddenActivations[i]));
         }
 
         // Create output layer (last hidden to output)
