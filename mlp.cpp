@@ -63,10 +63,17 @@ MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
 }
 
 std::vector<int> MLP::getHiddenLayerSizes() const {
+    QMutexLocker locker(&mutex);
     return hiddenSizes;
 }
 
 Eigen::VectorXf MLP::forward(const Eigen::VectorXf& input)
+{
+    QMutexLocker locker(&mutex);
+    return forwardUnsafe(input);
+}
+
+Eigen::VectorXf MLP::forwardUnsafe(const Eigen::VectorXf& input)
 {
     Eigen::VectorXf current = input;
 
@@ -87,8 +94,10 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
 float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate,
                  OptimizerType optimizer, int timestep)
 {
-    // Forward pass
-    Eigen::VectorXf output = forward(input);
+    QMutexLocker locker(&mutex);
+
+    // Forward pass (use unsafe version since we already have the lock)
+    Eigen::VectorXf output = forwardUnsafe(input);
 
     // Calculate loss
     float loss = calculateLoss(output, target);
@@ -115,6 +124,8 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
 
 void MLP::resetOptimizerState()
 {
+    QMutexLocker locker(&mutex);
+
     // Reset global Adam timestep
     adamTimestep = 0;
 
@@ -126,6 +137,8 @@ void MLP::resetOptimizerState()
 
 void MLP::setAdamHyperparameters(float beta1, float beta2, float epsilon)
 {
+    QMutexLocker locker(&mutex);
+
     // Set Adam hyperparameters for all layers
     for (auto& layer : layers) {
         layer.setAdamHyperparameters(beta1, beta2, epsilon);
@@ -185,11 +198,29 @@ float MLP::predict(const QImage& image)
     // Preprocess image
     Eigen::VectorXf input = preprocessImage(image);
 
-    // Forward pass
+    // Forward pass (thread-safe)
     Eigen::VectorXf output = forward(input);
 
     // Return probability
     return output(0);
+}
+
+std::vector<Layer> MLP::getLayersCopy() const
+{
+    QMutexLocker locker(&mutex);
+    return layers;
+}
+
+const std::vector<Layer>& MLP::getLayers() const
+{
+    QMutexLocker locker(&mutex);
+    return layers;
+}
+
+int MLP::getNumHiddenLayers() const
+{
+    QMutexLocker locker(&mutex);
+    return layers.size() - 1;
 }
 
 QJsonObject MLP::saveToJson() const

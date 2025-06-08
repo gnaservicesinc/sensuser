@@ -310,8 +310,13 @@ void MainWindow::updateHiddenLayerVisualization()
         return;
     }
 
+    // Get a thread-safe copy of the layers to avoid race conditions
+    std::vector<Layer> layersCopy;
+
     try {
-        // Get hidden layer activations
+        layersCopy = mlp->getLayersCopy();
+
+        // Get hidden layer activations using thread-safe forward pass
         Eigen::VectorXf input = mlp->preprocessImage(currentImage);
         mlp->forward(input);
 
@@ -356,19 +361,19 @@ void MainWindow::updateHiddenLayerVisualization()
 
     try {
         // Safety checks
-        if (!mlp || mlp->getLayers().empty() || currentHiddenLayerIndex < 0) {
+        if (!mlp || layersCopy.empty() || currentHiddenLayerIndex < 0) {
             return;
         }
 
         // Get the selected hidden layer
         int layerIdx = currentHiddenLayerIndex;
-        if (layerIdx >= static_cast<int>(mlp->getLayers().size()) - 1) {
+        if (layerIdx >= static_cast<int>(layersCopy.size()) - 1) {
             // Invalid layer index
             hiddenLayerScene->addText("Invalid layer index");
             return;
         }
 
-        const Layer& hiddenLayer = mlp->getLayers()[layerIdx];
+        const Layer& hiddenLayer = layersCopy[layerIdx];
         const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
 
         if (activations.size() == 0) {
@@ -491,8 +496,8 @@ void MainWindow::updateHiddenLayerVisualization()
         int gridSize = 0;
 
         if (mlp && currentHiddenLayerIndex >= 0 &&
-            currentHiddenLayerIndex < static_cast<int>(mlp->getLayers().size())) {
-            const Layer& hiddenLayer = mlp->getLayers()[currentHiddenLayerIndex];
+            currentHiddenLayerIndex < static_cast<int>(layersCopy.size())) {
+            const Layer& hiddenLayer = layersCopy[currentHiddenLayerIndex];
             hiddenSize = hiddenLayer.getOutputSize();
             gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
         } else {
@@ -569,12 +574,19 @@ void MainWindow::updateOutputLayerVisualization()
             return; // Safety check
         }
 
-        if (currentImage.isNull() || !mlp || mlp->getLayers().empty()) {
+        if (currentImage.isNull() || !mlp) {
+            return;
+        }
+
+        // Get a thread-safe copy of the layers to avoid race conditions
+        std::vector<Layer> layersCopy = mlp->getLayersCopy();
+
+        if (layersCopy.empty()) {
             return;
         }
 
         // Get output layer (last layer in the network)
-        const Layer& outputLayer = mlp->getLayers().back();
+        const Layer& outputLayer = layersCopy.back();
         const Eigen::VectorXf& output = outputLayer.getLastOutput();
         const Eigen::VectorXf& z = outputLayer.getLastZ();
 
@@ -632,15 +644,15 @@ void MainWindow::updateOutputLayerVisualization()
 
         // Add network architecture information
         int numHiddenLayers = mlp->getNumHiddenLayers();
-        QString architectureInfo = QString("Network Architecture: %1 input → ").arg(mlp->getLayers()[0].getInputSize());
+        QString architectureInfo = QString("Network Architecture: %1 input → ").arg(layersCopy[0].getInputSize());
 
         if (numHiddenLayers > 0) {
             for (int i = 0; i < numHiddenLayers; ++i) {
-                architectureInfo += QString("%1 → ").arg(mlp->getLayers()[i].getOutputSize());
+                architectureInfo += QString("%1 → ").arg(layersCopy[i].getOutputSize());
             }
         }
 
-        architectureInfo += QString("%1 output").arg(mlp->getLayers().back().getOutputSize());
+        architectureInfo += QString("%1 output").arg(layersCopy.back().getOutputSize());
 
         QGraphicsTextItem* architectureItem = outputLayerScene->addText(architectureInfo);
         architectureItem->setPos(0, barY + barHeight + 50);
@@ -1231,7 +1243,13 @@ void MainWindow::onEvaluationComplete(float accuracy, int truePositives, int tru
 void MainWindow::onTabChanged(int index)
 {
     // Update visualizations when switching to visualization tabs
-    if (index >= 1 && !currentImage.isNull()) {
-        updateLayerVisualizations();
+    if (index >= 1 && !currentImage.isNull() && mlp) {
+        try {
+            updateLayerVisualizations();
+        } catch (const std::exception& e) {
+            qWarning() << "Exception during tab change visualization update:" << e.what();
+        } catch (...) {
+            qWarning() << "Unknown exception during tab change visualization update";
+        }
     }
 }

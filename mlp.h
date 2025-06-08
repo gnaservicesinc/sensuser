@@ -12,6 +12,8 @@
 #include <QDataStream>
 #include <QByteArray>
 #include <QJsonDocument>
+#include <QMutex>
+#include <QMutexLocker>
 
 /**
  * @brief The MLP class represents a Multi-Layer Perceptron neural network
@@ -56,11 +58,18 @@ public:
         const std::string& outputActivation = "sigmoid");
 
     /**
-     * @brief Forward pass through the network
+     * @brief Forward pass through the network (thread-safe)
      * @param input Input values
      * @return Output values
      */
     Eigen::VectorXf forward(const Eigen::VectorXf& input);
+
+    /**
+     * @brief Forward pass through the network without locking (for internal use)
+     * @param input Input values
+     * @return Output values
+     */
+    Eigen::VectorXf forwardUnsafe(const Eigen::VectorXf& input);
 
     /**
      * @brief Train the network on a single example (SGD version for backward compatibility)
@@ -104,23 +113,29 @@ public:
     Eigen::VectorXf preprocessImage(const QImage& image);
 
     /**
-     * @brief Predict whether an image contains the target object
+     * @brief Predict whether an image contains the target object (thread-safe)
      * @param image Input image
      * @return Probability that the image contains the target object
      */
     float predict(const QImage& image);
 
     /**
-     * @brief Get the layers of the network
-     * @return Vector of layers
+     * @brief Get a thread-safe copy of the layers for visualization
+     * @return Copy of the layers vector
      */
-    const std::vector<Layer>& getLayers() const { return layers; }
+    std::vector<Layer> getLayersCopy() const;
 
     /**
-     * @brief Get the number of hidden layers
+     * @brief Get the layers of the network (thread-safe)
+     * @return Vector of layers
+     */
+    const std::vector<Layer>& getLayers() const;
+
+    /**
+     * @brief Get the number of hidden layers (thread-safe)
      * @return Number of hidden layers
      */
-    int getNumHiddenLayers() const { return layers.size() - 1; }
+    int getNumHiddenLayers() const;
 
     /**
      * @brief Get the sizes of all hidden layers
@@ -167,6 +182,9 @@ private:
 
     // Adam optimizer state
     int adamTimestep; // Global timestep counter for Adam bias correction
+
+    // Thread safety
+    mutable QMutex mutex; // Protects all MLP operations
 
     /**
      * @brief Calculate the loss for a single example
