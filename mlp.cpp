@@ -6,7 +6,7 @@
 
 MLP::MLP(int inputSize, int hiddenSize, int outputSize,
          const std::string& hiddenActivation, const std::string& outputActivation)
-    : inputSize(inputSize), outputSize(outputSize)
+    : inputSize(inputSize), outputSize(outputSize), adamTimestep(0)
 {
     // Store hidden layer size
     hiddenSizes = {hiddenSize};
@@ -18,7 +18,7 @@ MLP::MLP(int inputSize, int hiddenSize, int outputSize,
 
 MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
          const std::string& hiddenActivation, const std::string& outputActivation)
-    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes)
+    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes), adamTimestep(0)
 {
     if (hiddenSizes.empty()) {
         // If no hidden layers, create a direct input-to-output layer
@@ -39,7 +39,7 @@ MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
 
 MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
          const std::vector<std::string>& hiddenActivations, const std::string& outputActivation)
-    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes)
+    : inputSize(inputSize), outputSize(outputSize), hiddenSizes(hiddenSizes), adamTimestep(0)
 {
     if (hiddenSizes.size() != hiddenActivations.size()) {
         throw std::invalid_argument("Number of hidden layer sizes must match number of activation functions");
@@ -96,9 +96,18 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
     // Calculate loss gradient
     Eigen::VectorXf gradient = calculateLossGradient(output, target);
 
-    // Backward pass with optimizer support
-    for (int i = layers.size() - 1; i >= 0; --i) {
-        gradient = layers[i].backward(gradient, learningRate, optimizer, timestep);
+    // For Adam optimizer, increment global timestep and use it for all layers
+    if (optimizer == OptimizerType::Adam) {
+        adamTimestep++;
+        // Use the global timestep for all layers
+        for (int i = layers.size() - 1; i >= 0; --i) {
+            gradient = layers[i].backward(gradient, learningRate, optimizer, adamTimestep);
+        }
+    } else {
+        // For other optimizers, use the provided timestep (or ignore it)
+        for (int i = layers.size() - 1; i >= 0; --i) {
+            gradient = layers[i].backward(gradient, learningRate, optimizer, timestep);
+        }
     }
 
     return loss;
@@ -106,9 +115,20 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
 
 void MLP::resetOptimizerState()
 {
+    // Reset global Adam timestep
+    adamTimestep = 0;
+
     // Reset optimizer state for all layers
     for (auto& layer : layers) {
         layer.resetOptimizerState();
+    }
+}
+
+void MLP::setAdamHyperparameters(float beta1, float beta2, float epsilon)
+{
+    // Set Adam hyperparameters for all layers
+    for (auto& layer : layers) {
+        layer.setAdamHyperparameters(beta1, beta2, epsilon);
     }
 }
 

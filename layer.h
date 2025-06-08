@@ -50,6 +50,14 @@ public:
      * @brief Reset optimizer state variables (m and v)
      */
     void resetOptimizerState();
+
+    /**
+     * @brief Set Adam hyperparameters
+     * @param beta1 First moment decay rate (default: 0.9)
+     * @param beta2 Second moment decay rate (default: 0.999)
+     * @param epsilon Small constant for numerical stability (default: 1e-8)
+     */
+    void setAdamHyperparameters(float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-8f);
     
     /**
      * @brief Get the weights of the layer
@@ -132,6 +140,11 @@ private:
     Eigen::VectorXf m_biases;   ///< First moment for biases (Adam)
     Eigen::MatrixXf v_weights;  ///< Second moment for weights (Adam & RMSprop)
     Eigen::VectorXf v_biases;   ///< Second moment for biases (Adam & RMSprop)
+
+    // Adam hyperparameters
+    float adamBeta1;    ///< First moment decay rate (default: 0.9)
+    float adamBeta2;    ///< Second moment decay rate (default: 0.999)
+    float adamEpsilon;  ///< Small constant for numerical stability (default: 1e-8)
 
     // Initialize activation functions based on name
     void initializeActivationFunctions();

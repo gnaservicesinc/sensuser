@@ -168,7 +168,6 @@ void TrainingWorker::train()
 
     // Training loop
     float totalLoss = 0.0f;
-    int timestep = 1; // For Adam optimizer bias correction (must start at 1)
 
     for (int epoch = 0; epoch < localEpochs; ++epoch) {
         // Check if stop requested before each epoch
@@ -210,11 +209,8 @@ void TrainingWorker::train()
             float batchLoss = 0.0f;
 
             for (size_t j = i; j < batchEnd; ++j) {
-                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate, localOptimizer, timestep);
+                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate, localOptimizer);
             }
-
-            // Increment timestep once per batch, not per example
-            timestep++;
 
             totalLoss += batchLoss;
 

@@ -28,6 +28,11 @@ Layer::Layer(int inputSize, int outputSize, const std::string& activationFunctio
     v_weights = Eigen::MatrixXf::Zero(outputSize, inputSize);
     v_biases = Eigen::VectorXf::Zero(outputSize);
 
+    // Initialize Adam hyperparameters with standard values
+    adamBeta1 = 0.9f;
+    adamBeta2 = 0.999f;
+    adamEpsilon = 1e-8f;
+
     // Initialize activation functions
     initializeActivationFunctions();
 }
@@ -138,6 +143,13 @@ void Layer::resetOptimizerState()
     v_biases.setZero();
 }
 
+void Layer::setAdamHyperparameters(float beta1, float beta2, float epsilon)
+{
+    adamBeta1 = beta1;
+    adamBeta2 = beta2;
+    adamEpsilon = epsilon;
+}
+
 void Layer::applySGD(const Eigen::VectorXf& delta, float learningRate)
 {
     // Standard SGD update
@@ -169,10 +181,10 @@ void Layer::applyRMSprop(const Eigen::VectorXf& delta, float learningRate)
 
 void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int timestep)
 {
-    // Adam hyperparameters - using more conservative values
-    const float beta1 = 0.9f;
-    const float beta2 = 0.999f;
-    const float epsilon = 1e-7f; // Slightly larger epsilon for stability
+    // Use configurable Adam hyperparameters
+    const float beta1 = adamBeta1;
+    const float beta2 = adamBeta2;
+    const float epsilon = adamEpsilon;
 
     // Calculate weight gradients
     Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
@@ -189,48 +201,34 @@ void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int time
     // Update second moment for biases
     v_biases = beta2 * v_biases + (1.0f - beta2) * delta.array().square().matrix();
 
-    // Ensure timestep is valid
+    // Ensure timestep is valid (must be >= 1 for Adam)
     if (timestep <= 0) {
         timestep = 1;
     }
 
-    // Calculate bias correction factors with clamping to prevent extreme values
-    float bias_correction1 = 1.0f - std::pow(beta1, timestep);
-    float bias_correction2 = 1.0f - std::pow(beta2, timestep);
-
-    // Clamp bias corrections to reasonable ranges
-    bias_correction1 = std::max(bias_correction1, 0.01f); // Prevent division by very small numbers
-    bias_correction2 = std::max(bias_correction2, 0.001f);
+    // Calculate bias correction factors exactly as per Adam algorithm
+    // Note: Using std::pow for exact calculation
+    const float beta1_t = std::pow(beta1, timestep);
+    const float beta2_t = std::pow(beta2, timestep);
+    const float bias_correction1 = 1.0f - beta1_t;
+    const float bias_correction2 = 1.0f - beta2_t;
 
     // Calculate bias-corrected first and second moments
+    // m_hat = m / (1 - beta1^t), v_hat = v / (1 - beta2^t)
     Eigen::MatrixXf m_hat_weights = m_weights / bias_correction1;
     Eigen::MatrixXf v_hat_weights = v_weights / bias_correction2;
 
     Eigen::VectorXf m_hat_biases = m_biases / bias_correction1;
     Eigen::VectorXf v_hat_biases = v_biases / bias_correction2;
 
-    // Calculate the adaptive learning rates
-    Eigen::MatrixXf weight_lr = (v_hat_weights.array().sqrt() + epsilon).matrix();
-    Eigen::VectorXf bias_lr = (v_hat_biases.array().sqrt() + epsilon).matrix();
-
-    // Apply gradient clipping to the final update to prevent exploding gradients
-    Eigen::MatrixXf weight_update = learningRate * (m_hat_weights.array() / weight_lr.array()).matrix();
-    Eigen::VectorXf bias_update = learningRate * (m_hat_biases.array() / bias_lr.array()).matrix();
-
-    // Clip updates to prevent extreme changes
-    const float max_update = 0.1f; // Maximum allowed update magnitude
-    float weight_norm = weight_update.norm();
-    if (weight_norm > max_update) {
-        weight_update *= (max_update / weight_norm);
-    }
-
-    float bias_norm = bias_update.norm();
-    if (bias_norm > max_update) {
-        bias_update *= (max_update / bias_norm);
-    }
+    // Calculate weight updates: weight = weight - learning_rate * m_hat / (sqrt(v_hat) + epsilon)
+    Eigen::MatrixXf weight_update = learningRate * (m_hat_weights.array() / (v_hat_weights.array().sqrt() + epsilon)).matrix();
+    Eigen::VectorXf bias_update = learningRate * (m_hat_biases.array() / (v_hat_biases.array().sqrt() + epsilon)).matrix();
 
     // Debug output for the first few timesteps to monitor update magnitudes
     if (timestep <= 5) {
+        float weight_norm = weight_update.norm();
+        float bias_norm = bias_update.norm();
         std::cout << "Adam timestep " << timestep
                   << ": weight_norm=" << weight_norm
                   << ", bias_norm=" << bias_norm

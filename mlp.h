@@ -89,6 +89,14 @@ public:
     void resetOptimizerState();
 
     /**
+     * @brief Set Adam hyperparameters for all layers
+     * @param beta1 First moment decay rate (default: 0.9)
+     * @param beta2 Second moment decay rate (default: 0.999)
+     * @param epsilon Small constant for numerical stability (default: 1e-8)
+     */
+    void setAdamHyperparameters(float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-8f);
+
+    /**
      * @brief Preprocess an image for input to the network
      * @param image Input image
      * @return Preprocessed image as a vector
@@ -156,6 +164,9 @@ private:
     int inputSize;
     int outputSize;
     std::vector<int> hiddenSizes; // Store sizes of all hidden layers
+
+    // Adam optimizer state
+    int adamTimestep; // Global timestep counter for Adam bias correction
 
     /**
      * @brief Calculate the loss for a single example

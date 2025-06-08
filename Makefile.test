@@ -1,0 +1,30 @@
+# Simple Makefile for testing Adam optimizer fix
+CXX = clang++
+CXXFLAGS = -std=c++17 -I/usr/local/include/Eigen -I. -O2
+LDFLAGS = 
+
+# Source files needed for the test
+SOURCES = test_adam_fix.cpp layer.cpp
+OBJECTS = $(SOURCES:.cpp=.o)
+TARGET = test_adam_fix
+
+# Default target
+all: $(TARGET)
+
+# Build the test executable
+$(TARGET): $(OBJECTS)
+	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+
+# Compile source files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Run the test
+test: $(TARGET)
+	./$(TARGET)
+
+# Clean up
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+
+.PHONY: all test clean
