@@ -80,6 +80,13 @@ Eigen::VectorXf MLP::forward(const Eigen::VectorXf& input)
 
 float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate)
 {
+    // Use SGD optimizer for backward compatibility
+    return train(input, target, learningRate, OptimizerType::SGD, 1);
+}
+
+float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate,
+                 OptimizerType optimizer, int timestep)
+{
     // Forward pass
     Eigen::VectorXf output = forward(input);
 
@@ -89,12 +96,20 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
     // Calculate loss gradient
     Eigen::VectorXf gradient = calculateLossGradient(output, target);
 
-    // Backward pass
+    // Backward pass with optimizer support
     for (int i = layers.size() - 1; i >= 0; --i) {
-        gradient = layers[i].backward(gradient, learningRate);
+        gradient = layers[i].backward(gradient, learningRate, optimizer, timestep);
     }
 
     return loss;
+}
+
+void MLP::resetOptimizerState()
+{
+    // Reset optimizer state for all layers
+    for (auto& layer : layers) {
+        layer.resetOptimizerState();
+    }
 }
 
 float MLP::calculateLoss(const Eigen::VectorXf& output, const Eigen::VectorXf& target) const

@@ -228,6 +228,35 @@
                  </property>
                 </widget>
                </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="label_10">
+                 <property name="text">
+                  <string>Optimizer:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QComboBox" name="cbOptimizer">
+                 <property name="toolTip">
+                  <string>Selects the optimization algorithm used during training. Adam is recommended as a good default for most problems.</string>
+                 </property>
+                 <item>
+                  <property name="text">
+                   <string>SGD (Stochastic Gradient Descent)</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>RMSprop</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Adam</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
               </layout>
              </widget>
             </item>

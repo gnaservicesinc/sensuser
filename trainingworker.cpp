@@ -7,7 +7,8 @@
 #include <random>
 
 TrainingWorker::TrainingWorker(MLP* mlp, QObject* parent)
-    : QObject(parent), mlp(mlp), learningRate(0.01f), epochs(100), batchSize(10), shuffle(true), stopRequested(false)
+    : QObject(parent), mlp(mlp), learningRate(0.01f), epochs(100), batchSize(10), shuffle(true),
+      optimizer(OptimizerType::SGD), stopRequested(false)
 {
     clearLossHistory();
 }
@@ -46,6 +47,12 @@ void TrainingWorker::setShuffle(bool shuffle)
 {
     QMutexLocker locker(&mutex);
     this->shuffle = shuffle;
+}
+
+void TrainingWorker::setOptimizer(OptimizerType optimizer)
+{
+    QMutexLocker locker(&mutex);
+    this->optimizer = optimizer;
 }
 
 void TrainingWorker::stop()
@@ -106,6 +113,7 @@ void TrainingWorker::train()
     int localEpochs;
     int localBatchSize;
     bool localShuffle;
+    OptimizerType localOptimizer;
 
     // Get parameters under mutex lock
     {
@@ -121,11 +129,15 @@ void TrainingWorker::train()
         localEpochs = epochs;
         localBatchSize = batchSize;
         localShuffle = shuffle;
+        localOptimizer = optimizer;
 
         // Clear loss history at the start of training
         m_trainingLossHistory.clear();
         m_validationLossHistory.clear();
     }
+
+    // Reset optimizer state when starting training
+    mlp->resetOptimizerState();
 
     // Load positive examples - done outside the mutex lock
     std::vector<QImage> positiveImages = loadImages(localPositiveDir);
@@ -156,6 +168,7 @@ void TrainingWorker::train()
 
     // Training loop
     float totalLoss = 0.0f;
+    int timestep = 0; // For Adam optimizer bias correction
 
     for (int epoch = 0; epoch < localEpochs; ++epoch) {
         // Check if stop requested before each epoch
@@ -197,7 +210,8 @@ void TrainingWorker::train()
             float batchLoss = 0.0f;
 
             for (size_t j = i; j < batchEnd; ++j) {
-                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate);
+                timestep++; // Increment timestep for each training example
+                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate, localOptimizer, timestep);
             }
 
             totalLoss += batchLoss;

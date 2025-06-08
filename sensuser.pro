@@ -25,7 +25,8 @@ HEADERS += \
     mlp.h \
     layer.h \
     trainingworker.h \
-    losscurvewidget.h
+    losscurvewidget.h \
+    optimizertypes.h
 
 FORMS += \
     mainwindow.ui

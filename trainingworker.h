@@ -62,6 +62,12 @@ public:
     void setShuffle(bool shuffle);
 
     /**
+     * @brief Set the optimizer type
+     * @param optimizer Optimizer type to use
+     */
+    void setOptimizer(OptimizerType optimizer);
+
+    /**
      * @brief Stop training
      */
     void stop();
@@ -135,6 +141,7 @@ private:
     int epochs;
     int batchSize;
     bool shuffle;
+    OptimizerType optimizer;
     bool stopRequested;
 
     QVector<QPointF> m_trainingLossHistory;

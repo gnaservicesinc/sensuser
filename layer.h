@@ -4,6 +4,7 @@
 #include </usr/local/include/Eigen/Dense>
 #include <functional>
 #include <string>
+#include "optimizertypes.h"
 
 /**
  * @brief The Layer class represents a single layer in a neural network
@@ -27,12 +28,28 @@ public:
     Eigen::VectorXf forward(const Eigen::VectorXf& input);
     
     /**
-     * @brief Backward pass through the layer
+     * @brief Backward pass through the layer (SGD version for backward compatibility)
      * @param outputGradient Gradient from the next layer
      * @param learningRate Learning rate for weight updates
      * @return Gradient to pass to the previous layer
      */
     Eigen::VectorXf backward(const Eigen::VectorXf& outputGradient, float learningRate);
+
+    /**
+     * @brief Backward pass through the layer with optimizer support
+     * @param outputGradient Gradient from the next layer
+     * @param learningRate Learning rate for weight updates
+     * @param optimizer Optimizer type to use
+     * @param timestep Current timestep (for Adam bias correction)
+     * @return Gradient to pass to the previous layer
+     */
+    Eigen::VectorXf backward(const Eigen::VectorXf& outputGradient, float learningRate,
+                            OptimizerType optimizer, int timestep = 1);
+
+    /**
+     * @brief Reset optimizer state variables (m and v)
+     */
+    void resetOptimizerState();
     
     /**
      * @brief Get the weights of the layer
@@ -109,9 +126,20 @@ private:
     Eigen::VectorXf lastInput;
     Eigen::VectorXf lastZ;
     Eigen::VectorXf lastOutput;
-    
+
+    // Optimizer state variables
+    Eigen::MatrixXf m_weights;  ///< First moment for weights (Adam)
+    Eigen::VectorXf m_biases;   ///< First moment for biases (Adam)
+    Eigen::MatrixXf v_weights;  ///< Second moment for weights (Adam & RMSprop)
+    Eigen::VectorXf v_biases;   ///< Second moment for biases (Adam & RMSprop)
+
     // Initialize activation functions based on name
     void initializeActivationFunctions();
+
+    // Helper methods for different optimizers
+    void applySGD(const Eigen::VectorXf& delta, float learningRate);
+    void applyRMSprop(const Eigen::VectorXf& delta, float learningRate);
+    void applyAdam(const Eigen::VectorXf& delta, float learningRate, int timestep);
 };
 
 #endif // LAYER_H

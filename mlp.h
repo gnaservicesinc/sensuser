@@ -2,6 +2,7 @@
 #define MLP_H
 
 #include "layer.h"
+#include "optimizertypes.h"
 #include <vector>
 #include <string>
 #include </usr/local/include/Eigen/Dense>
@@ -62,13 +63,30 @@ public:
     Eigen::VectorXf forward(const Eigen::VectorXf& input);
 
     /**
-     * @brief Train the network on a single example
+     * @brief Train the network on a single example (SGD version for backward compatibility)
      * @param input Input values
      * @param target Target values
      * @param learningRate Learning rate for weight updates
      * @return Loss value
      */
     float train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate);
+
+    /**
+     * @brief Train the network on a single example with optimizer support
+     * @param input Input values
+     * @param target Target values
+     * @param learningRate Learning rate for weight updates
+     * @param optimizer Optimizer type to use
+     * @param timestep Current timestep (for Adam bias correction)
+     * @return Loss value
+     */
+    float train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate,
+                OptimizerType optimizer, int timestep = 1);
+
+    /**
+     * @brief Reset optimizer state for all layers
+     */
+    void resetOptimizerState();
 
     /**
      * @brief Preprocess an image for input to the network

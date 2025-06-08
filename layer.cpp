@@ -20,7 +20,13 @@ Layer::Layer(int inputSize, int outputSize, const std::string& activationFunctio
     
     // Initialize biases to zero
     biases = Eigen::VectorXf::Zero(outputSize);
-    
+
+    // Initialize optimizer state variables to zero
+    m_weights = Eigen::MatrixXf::Zero(outputSize, inputSize);
+    m_biases = Eigen::VectorXf::Zero(outputSize);
+    v_weights = Eigen::MatrixXf::Zero(outputSize, inputSize);
+    v_biases = Eigen::VectorXf::Zero(outputSize);
+
     // Initialize activation functions
     initializeActivationFunctions();
 }
@@ -87,23 +93,114 @@ Eigen::VectorXf Layer::forward(const Eigen::VectorXf& input)
 
 Eigen::VectorXf Layer::backward(const Eigen::VectorXf& outputGradient, float learningRate)
 {
+    // Use SGD optimizer for backward compatibility
+    return backward(outputGradient, learningRate, OptimizerType::SGD, 1);
+}
+
+Eigen::VectorXf Layer::backward(const Eigen::VectorXf& outputGradient, float learningRate,
+                               OptimizerType optimizer, int timestep)
+{
     // Calculate gradient of activation function
     Eigen::VectorXf activationGradient(outputSize);
     for (int i = 0; i < outputSize; ++i) {
         activationGradient(i) = activationDerivative(lastZ(i));
     }
-    
+
     // Element-wise multiplication of output gradient and activation gradient
     Eigen::VectorXf delta = outputGradient.array() * activationGradient.array();
-    
+
     // Calculate gradient for the previous layer
     Eigen::VectorXf inputGradient = weights.transpose() * delta;
-    
-    // Update weights: W -= learning_rate * delta * input^T
-    weights -= learningRate * (delta * lastInput.transpose());
-    
-    // Update biases: b -= learning_rate * delta
-    biases -= learningRate * delta;
-    
+
+    // Apply the selected optimizer
+    switch (optimizer) {
+        case OptimizerType::SGD:
+            applySGD(delta, learningRate);
+            break;
+        case OptimizerType::RMSprop:
+            applyRMSprop(delta, learningRate);
+            break;
+        case OptimizerType::Adam:
+            applyAdam(delta, learningRate, timestep);
+            break;
+    }
+
     return inputGradient;
+}
+
+void Layer::resetOptimizerState()
+{
+    // Reset all optimizer state variables to zero
+    m_weights.setZero();
+    m_biases.setZero();
+    v_weights.setZero();
+    v_biases.setZero();
+}
+
+void Layer::applySGD(const Eigen::VectorXf& delta, float learningRate)
+{
+    // Standard SGD update
+    weights -= learningRate * (delta * lastInput.transpose());
+    biases -= learningRate * delta;
+}
+
+void Layer::applyRMSprop(const Eigen::VectorXf& delta, float learningRate)
+{
+    // RMSprop hyperparameters
+    const float beta = 0.9f;
+    const float epsilon = 1e-8f;
+
+    // Calculate weight gradients
+    Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
+
+    // Update second moment for weights: v = beta * v + (1 - beta) * gradient^2
+    v_weights = beta * v_weights + (1.0f - beta) * weightGradients.array().square().matrix();
+
+    // Update second moment for biases
+    v_biases = beta * v_biases + (1.0f - beta) * delta.array().square().matrix();
+
+    // Update weights: W -= learning_rate * gradient / sqrt(v + epsilon)
+    weights -= learningRate * (weightGradients.array() / (v_weights.array().sqrt() + epsilon)).matrix();
+
+    // Update biases: b -= learning_rate * gradient / sqrt(v + epsilon)
+    biases -= learningRate * (delta.array() / (v_biases.array().sqrt() + epsilon)).matrix();
+}
+
+void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int timestep)
+{
+    // Adam hyperparameters
+    const float beta1 = 0.9f;
+    const float beta2 = 0.999f;
+    const float epsilon = 1e-8f;
+
+    // Calculate weight gradients
+    Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
+
+    // Update first moment for weights: m = beta1 * m + (1 - beta1) * gradient
+    m_weights = beta1 * m_weights + (1.0f - beta1) * weightGradients;
+
+    // Update second moment for weights: v = beta2 * v + (1 - beta2) * gradient^2
+    v_weights = beta2 * v_weights + (1.0f - beta2) * weightGradients.array().square().matrix();
+
+    // Update first moment for biases
+    m_biases = beta1 * m_biases + (1.0f - beta1) * delta;
+
+    // Update second moment for biases
+    v_biases = beta2 * v_biases + (1.0f - beta2) * delta.array().square().matrix();
+
+    // Bias correction
+    float beta1_t = std::pow(beta1, timestep);
+    float beta2_t = std::pow(beta2, timestep);
+
+    Eigen::MatrixXf m_hat_weights = m_weights / (1.0f - beta1_t);
+    Eigen::MatrixXf v_hat_weights = v_weights / (1.0f - beta2_t);
+
+    Eigen::VectorXf m_hat_biases = m_biases / (1.0f - beta1_t);
+    Eigen::VectorXf v_hat_biases = v_biases / (1.0f - beta2_t);
+
+    // Update weights: W -= learning_rate * m_hat / (sqrt(v_hat) + epsilon)
+    weights -= learningRate * (m_hat_weights.array() / (v_hat_weights.array().sqrt() + epsilon)).matrix();
+
+    // Update biases: b -= learning_rate * m_hat / (sqrt(v_hat) + epsilon)
+    biases -= learningRate * (m_hat_biases.array() / (v_hat_biases.array().sqrt() + epsilon)).matrix();
 }

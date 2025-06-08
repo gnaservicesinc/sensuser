@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "optimizertypes.h"
 #include <QDebug>
 #include <QDirIterator>
 #include <QImageReader>
@@ -98,10 +99,16 @@ void MainWindow::initializeUI()
     ui->cbHiddenActivation->setItemData(2, "Similar to Sigmoid but zero-centered (-1 to 1). Often preferred over Sigmoid in hidden layers.", Qt::ToolTipRole);
     ui->cbHiddenActivation->setItemData(3, "A variant of ReLU that allows a small, non-zero gradient when the unit is not active, preventing 'dying ReLU' problems.", Qt::ToolTipRole);
 
+    // Set tooltips for optimizer options
+    ui->cbOptimizer->setItemData(0, "Standard Stochastic Gradient Descent. The simplest optimizer, it updates weights based on the current gradient and learning rate. Can be slow to converge.", Qt::ToolTipRole);
+    ui->cbOptimizer->setItemData(1, "Root Mean Square Propagation. Adapts the learning rate for each weight by dividing by a moving average of recent squared gradients. Good for non-stationary problems.", Qt::ToolTipRole);
+    ui->cbOptimizer->setItemData(2, "Adaptive Moment Estimation. Combines the ideas of RMSprop and momentum. It uses moving averages of both the gradient and its squared value to adapt the learning rate for each weight. Often converges fastest.", Qt::ToolTipRole);
+
     ui->sbLearningRate->setValue(0.01);
     ui->sbEpochs->setValue(100);
     ui->sbBatchSize->setValue(10);
     ui->cbShuffle->setChecked(true);
+    ui->cbOptimizer->setCurrentIndex(0); // Default to SGD
     ui->sbBias->setValue(0.0);
 
     // Setup hidden layers configuration UI
@@ -976,6 +983,10 @@ void MainWindow::on_btnTrain_clicked()
     worker->setEpochs(ui->sbEpochs->value());
     worker->setBatchSize(ui->sbBatchSize->value());
     worker->setShuffle(ui->cbShuffle->isChecked());
+
+    // Set optimizer type based on combo box selection
+    OptimizerType selectedOptimizer = static_cast<OptimizerType>(ui->cbOptimizer->currentIndex());
+    worker->setOptimizer(selectedOptimizer);
 
     // Disable UI elements during training
     ui->btnTrain->setEnabled(false);
