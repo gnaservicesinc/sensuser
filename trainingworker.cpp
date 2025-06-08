@@ -211,8 +211,10 @@ void TrainingWorker::train()
 
             for (size_t j = i; j < batchEnd; ++j) {
                 batchLoss += mlp->train(inputs[j], targets[j], localLearningRate, localOptimizer, timestep);
-                timestep++; // Increment timestep after each training example
             }
+
+            // Increment timestep once per batch, not per example
+            timestep++;
 
             totalLoss += batchLoss;
 

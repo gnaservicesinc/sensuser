@@ -168,7 +168,7 @@ void Layer::applyRMSprop(const Eigen::VectorXf& delta, float learningRate)
 
 void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int timestep)
 {
-    // Adam hyperparameters
+    // Adam hyperparameters (standard values)
     const float beta1 = 0.9f;
     const float beta2 = 0.999f;
     const float epsilon = 1e-8f;
@@ -193,30 +193,20 @@ void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int time
         timestep = 1; // Safety check
     }
 
-    float beta1_t = std::pow(beta1, timestep);
-    float beta2_t = std::pow(beta2, timestep);
+    // Calculate bias correction factors
+    float bias_correction1 = 1.0f - std::pow(beta1, timestep);
+    float bias_correction2 = 1.0f - std::pow(beta2, timestep);
 
-    // Add numerical stability to bias correction
-    float bias_correction1 = 1.0f - beta1_t;
-    float bias_correction2 = 1.0f - beta2_t;
-
-    // Ensure bias corrections don't become too small
-    bias_correction1 = std::max(bias_correction1, 1e-8f);
-    bias_correction2 = std::max(bias_correction2, 1e-8f);
-
+    // Calculate bias-corrected first and second moments
     Eigen::MatrixXf m_hat_weights = m_weights / bias_correction1;
     Eigen::MatrixXf v_hat_weights = v_weights / bias_correction2;
 
     Eigen::VectorXf m_hat_biases = m_biases / bias_correction1;
     Eigen::VectorXf v_hat_biases = v_biases / bias_correction2;
 
-    // For Adam, use a more conservative learning rate scaling
-    float adam_lr_scale = 0.1f; // Scale down the learning rate for Adam
-    float effective_lr = learningRate * adam_lr_scale;
-
     // Update weights: W -= learning_rate * m_hat / (sqrt(v_hat) + epsilon)
-    weights -= effective_lr * (m_hat_weights.array() / (v_hat_weights.array().sqrt() + epsilon)).matrix();
+    weights -= learningRate * (m_hat_weights.array() / (v_hat_weights.array().sqrt() + epsilon)).matrix();
 
     // Update biases: b -= learning_rate * m_hat / (sqrt(v_hat) + epsilon)
-    biases -= effective_lr * (m_hat_biases.array() / (v_hat_biases.array().sqrt() + epsilon)).matrix();
+    biases -= learningRate * (m_hat_biases.array() / (v_hat_biases.array().sqrt() + epsilon)).matrix();
 }
