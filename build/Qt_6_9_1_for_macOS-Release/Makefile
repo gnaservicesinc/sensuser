@@ -1491,6 +1491,10 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		../../trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -1759,6 +1763,10 @@ moc_trainingworker.cpp: ../../trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QThread \
@@ -2078,6 +2086,10 @@ main.o: ../../main.cpp ../../mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		../../trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -2373,6 +2385,10 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		../../trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
@@ -2652,6 +2668,10 @@ mlp.o: ../../mlp.cpp ../../mlp.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QJsonArray \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qjsonarray.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mlp.o ../../mlp.cpp
@@ -3159,6 +3179,10 @@ trainingworker.o: ../../trainingworker.cpp ../../trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadWriteLock \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qreadwritelock.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QReadLocker \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWriteLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QThread \

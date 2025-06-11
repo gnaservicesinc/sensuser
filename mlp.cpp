@@ -63,13 +63,13 @@ MLP::MLP(int inputSize, const std::vector<int>& hiddenSizes, int outputSize,
 }
 
 std::vector<int> MLP::getHiddenLayerSizes() const {
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&rwLock);
     return hiddenSizes;
 }
 
 Eigen::VectorXf MLP::forward(const Eigen::VectorXf& input)
 {
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&rwLock);
     return forwardUnsafe(input);
 }
 
@@ -94,7 +94,7 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
 float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, float learningRate,
                  OptimizerType optimizer, int timestep)
 {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&rwLock);
 
     // Forward pass (use unsafe version since we already have the lock)
     Eigen::VectorXf output = forwardUnsafe(input);
@@ -122,9 +122,47 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
     return loss;
 }
 
+float MLP::trainWithGranularLocking(const Eigen::VectorXf& input, const Eigen::VectorXf& target,
+                                    float learningRate, OptimizerType optimizer, int timestep)
+{
+    // Use a shorter lock duration for training loops to improve UI responsiveness
+    float loss;
+    Eigen::VectorXf output;
+    Eigen::VectorXf gradient;
+
+    // Forward pass with read lock (allows concurrent reads)
+    {
+        QReadLocker locker(&rwLock);
+        output = forwardUnsafe(input);
+        loss = calculateLoss(output, target);
+        gradient = calculateLossGradient(output, target);
+    }
+
+    // Backward pass with write lock (exclusive access for weight updates)
+    {
+        QWriteLocker locker(&rwLock);
+
+        // For Adam optimizer, increment global timestep and use it for all layers
+        if (optimizer == OptimizerType::Adam) {
+            adamTimestep++;
+            // Use the global timestep for all layers
+            for (int i = layers.size() - 1; i >= 0; --i) {
+                gradient = layers[i].backward(gradient, learningRate, optimizer, adamTimestep);
+            }
+        } else {
+            // For other optimizers, use the provided timestep (or ignore it)
+            for (int i = layers.size() - 1; i >= 0; --i) {
+                gradient = layers[i].backward(gradient, learningRate, optimizer, timestep);
+            }
+        }
+    }
+
+    return loss;
+}
+
 void MLP::resetOptimizerState()
 {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&rwLock);
 
     // Reset global Adam timestep
     adamTimestep = 0;
@@ -137,7 +175,7 @@ void MLP::resetOptimizerState()
 
 void MLP::setAdamHyperparameters(float beta1, float beta2, float epsilon)
 {
-    QMutexLocker locker(&mutex);
+    QWriteLocker locker(&rwLock);
 
     // Set Adam hyperparameters for all layers
     for (auto& layer : layers) {
@@ -207,19 +245,40 @@ float MLP::predict(const QImage& image)
 
 std::vector<Layer> MLP::getLayersCopy() const
 {
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&rwLock);
     return layers;
+}
+
+bool MLP::tryGetLayersCopy(std::vector<Layer>& layersCopy, int timeoutMs) const
+{
+    if (rwLock.tryLockForRead(timeoutMs)) {
+        layersCopy = layers;
+        rwLock.unlock();
+        return true;
+    }
+    return false;
+}
+
+bool MLP::isBusy() const
+{
+    // Try to acquire a read lock with zero timeout
+    // If we can't get it immediately, the model is busy
+    if (rwLock.tryLockForRead(0)) {
+        rwLock.unlock();
+        return false; // Not busy
+    }
+    return true; // Busy
 }
 
 const std::vector<Layer>& MLP::getLayers() const
 {
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&rwLock);
     return layers;
 }
 
 int MLP::getNumHiddenLayers() const
 {
-    QMutexLocker locker(&mutex);
+    QReadLocker locker(&rwLock);
     return layers.size() - 1;
 }
 

@@ -1479,11 +1479,12 @@ moc_mainwindow.cpp: mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qdatastream.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QByteArray \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		losscurvewidget.h \
@@ -1746,12 +1747,13 @@ moc_trainingworker.cpp: trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QJsonDocument \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qjsondocument.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QThread \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qthread.h \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QDir \
@@ -2064,11 +2066,12 @@ main.o: main.cpp mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qdatastream.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QByteArray \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		losscurvewidget.h \
@@ -2358,11 +2361,12 @@ mainwindow.o: mainwindow.cpp mainwindow.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qdatastream.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QByteArray \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		losscurvewidget.h \
@@ -2636,6 +2640,9 @@ mlp.o: mlp.cpp mlp.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QJsonDocument \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qjsondocument.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QJsonArray \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qjsonarray.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mlp.o mlp.cpp
@@ -3140,12 +3147,13 @@ trainingworker.o: trainingworker.cpp trainingworker.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qbytearray.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QJsonDocument \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qjsondocument.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
+		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutexLocker \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QObject \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qobject.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QThread \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qthread.h \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QMutex \
-		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qmutex.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QWaitCondition \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/qwaitcondition.h \
 		/opt/Qt/6.9.1/macos/lib/QtCore.framework/Headers/QDir \

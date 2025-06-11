@@ -310,11 +310,16 @@ void MainWindow::updateHiddenLayerVisualization()
         return;
     }
 
-    // Get a thread-safe copy of the layers to avoid race conditions
+    // Try to get a thread-safe copy of the layers without blocking for too long
     std::vector<Layer> layersCopy;
 
     try {
-        layersCopy = mlp->getLayersCopy();
+        // Try to get layers copy with a short timeout to avoid blocking UI
+        if (!mlp->tryGetLayersCopy(layersCopy, 50)) {
+            // If we can't get the layers quickly, show a "busy" message
+            hiddenLayerScene->addText("Model is busy training...\nVisualization will update when available.");
+            return;
+        }
 
         // Get hidden layer activations using thread-safe forward pass
         Eigen::VectorXf input = mlp->preprocessImage(currentImage);
@@ -578,8 +583,13 @@ void MainWindow::updateOutputLayerVisualization()
             return;
         }
 
-        // Get a thread-safe copy of the layers to avoid race conditions
-        std::vector<Layer> layersCopy = mlp->getLayersCopy();
+        // Try to get a thread-safe copy of the layers without blocking for too long
+        std::vector<Layer> layersCopy;
+        if (!mlp->tryGetLayersCopy(layersCopy, 50)) {
+            // If we can't get the layers quickly, show a "busy" message
+            outputLayerScene->addText("Model is busy training...\nVisualization will update when available.");
+            return;
+        }
 
         if (layersCopy.empty()) {
             return;

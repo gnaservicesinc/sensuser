@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QImageReader>
 #include <QDebug>
+#include <QThread>
 #include <algorithm>
 #include <random>
 
@@ -209,10 +210,13 @@ void TrainingWorker::train()
             float batchLoss = 0.0f;
 
             for (size_t j = i; j < batchEnd; ++j) {
-                batchLoss += mlp->train(inputs[j], targets[j], localLearningRate, localOptimizer);
+                batchLoss += mlp->trainWithGranularLocking(inputs[j], targets[j], localLearningRate, localOptimizer);
             }
 
             totalLoss += batchLoss;
+
+            // Give UI thread a chance to run by yielding briefly
+            QThread::msleep(1);
 
             // Check if stop requested periodically
             {

@@ -14,6 +14,9 @@
 #include <QJsonDocument>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QReadWriteLock>
+#include <QReadLocker>
+#include <QWriteLocker>
 
 /**
  * @brief The MLP class represents a Multi-Layer Perceptron neural network
@@ -93,6 +96,18 @@ public:
                 OptimizerType optimizer, int timestep = 1);
 
     /**
+     * @brief Train the network on a single example with granular locking (for training loops)
+     * @param input Input values
+     * @param target Target values
+     * @param learningRate Learning rate for weight updates
+     * @param optimizer Optimizer type to use
+     * @param timestep Current timestep (for Adam bias correction)
+     * @return Loss value
+     */
+    float trainWithGranularLocking(const Eigen::VectorXf& input, const Eigen::VectorXf& target,
+                                   float learningRate, OptimizerType optimizer, int timestep = 1);
+
+    /**
      * @brief Reset optimizer state for all layers
      */
     void resetOptimizerState();
@@ -124,6 +139,20 @@ public:
      * @return Copy of the layers vector
      */
     std::vector<Layer> getLayersCopy() const;
+
+    /**
+     * @brief Try to get a copy of the layers without blocking (for UI)
+     * @param layersCopy Output parameter for the layers copy
+     * @param timeoutMs Maximum time to wait in milliseconds
+     * @return True if successful, false if timeout or model is busy
+     */
+    bool tryGetLayersCopy(std::vector<Layer>& layersCopy, int timeoutMs = 100) const;
+
+    /**
+     * @brief Check if the model is currently busy (non-blocking)
+     * @return True if model is busy with training or other write operations
+     */
+    bool isBusy() const;
 
     /**
      * @brief Get the layers of the network (thread-safe)
@@ -184,7 +213,8 @@ private:
     int adamTimestep; // Global timestep counter for Adam bias correction
 
     // Thread safety
-    mutable QMutex mutex; // Protects all MLP operations
+    mutable QReadWriteLock rwLock; // Protects all MLP operations with read/write semantics
+    mutable QMutex trainingMutex; // Separate mutex for training operations
 
     /**
      * @brief Calculate the loss for a single example
