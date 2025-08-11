@@ -101,6 +101,16 @@ private:
     QComboBox* hiddenLayerSelector;
     int currentHiddenLayerIndex;
 
+    // Visualization panel controls
+    QComboBox* visModeCombo = nullptr;      // weights / heatmap
+    QComboBox* visScaleCombo = nullptr;     // minmax / symmetric zero-centered
+    QCheckBox* visBiasCheck = nullptr;      // include biases
+    QCheckBox* visStatsCheck = nullptr;     // include stats
+    QCheckBox* visRawCheck = nullptr;       // raw non-square weights
+
+private slots:
+    void onExportVisualizationsClicked();
+
     // Backend using libnoodlenet for model I/O and predict
     NoodleNetBackend* nnBackend = nullptr;
 

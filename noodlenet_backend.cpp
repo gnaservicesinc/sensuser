@@ -172,3 +172,15 @@ bool NoodleNetBackend::computePreActivations(const QImage& image, int layerIndex
     QFile::remove(tmp);
     return rc == 0;
 }
+
+bool NoodleNetBackend::exportVisualizations(const QString& outDir,
+                                            NN_VisMode mode,
+                                            NN_VisScale scale,
+                                            bool includeBias,
+                                            bool includeStats,
+                                            bool rawWeightsFull) const {
+    if (!model) return false;
+    NN_VisOptions opts; opts.mode = mode; opts.scale = scale; opts.include_bias = includeBias ? 1 : 0; opts.include_stats = includeStats ? 1 : 0; opts.raw_weights_full = rawWeightsFull ? 1 : 0;
+    int rc = nn_export_layer_visualizations_ex(model, outDir.toUtf8().constData(), &opts);
+    return rc == 0;
+}

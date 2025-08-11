@@ -66,6 +66,14 @@ public:
     bool computeActivations(const QImage& image, int layerIndex, std::vector<float>& out) const; // layerIndex: 0=input, ... L=output
     bool computePreActivations(const QImage& image, int layerIndex, std::vector<float>& out) const; // layerIndex: 1..L
 
+    // Export visualizations using libnoodlenet extended API
+    bool exportVisualizations(const QString& outDir,
+                              NN_VisMode mode,
+                              NN_VisScale scale,
+                              bool includeBias,
+                              bool includeStats,
+                              bool rawWeightsFull) const;
+
 private:
     static ActivationFunction parseActivation(const std::string& name);
     static QString writeTempPNG(const QImage& image);

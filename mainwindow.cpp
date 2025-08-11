@@ -141,6 +141,26 @@ void MainWindow::initializeUI()
     // Insert the selector layout at the top of the tab
     hiddenLayerLayout->insertLayout(0, selectorLayout);
 
+    // Visualization panel (mirrors Bookish options)
+    QGroupBox* visGroup = new QGroupBox("Visualization Options", hiddenLayerTab);
+    visGroup->setStyleSheet("QGroupBox { color: white; font-weight: bold; } QLabel { color: white; }");
+    QGridLayout* visLayout = new QGridLayout(visGroup);
+    QLabel* modeLabel = new QLabel("Mode:"); visModeCombo = new QComboBox(visGroup); visModeCombo->addItem("weights"); visModeCombo->addItem("heatmap");
+    QLabel* scaleLabel = new QLabel("Scaling:"); visScaleCombo = new QComboBox(visGroup); visScaleCombo->addItem("minmax"); visScaleCombo->addItem("symmetric zero");
+    visBiasCheck = new QCheckBox("Include biases", visGroup);
+    visStatsCheck = new QCheckBox("Include stats", visGroup);
+    visRawCheck = new QCheckBox("Raw weights (non-square)", visGroup);
+    QPushButton* exportBtn = new QPushButton("Export Visualizations…", visGroup);
+    connect(exportBtn, &QPushButton::clicked, this, &MainWindow::onExportVisualizationsClicked);
+
+    int r=0; visLayout->addWidget(modeLabel, r,0); visLayout->addWidget(visModeCombo, r,1); r++;
+    visLayout->addWidget(scaleLabel, r,0); visLayout->addWidget(visScaleCombo, r,1); r++;
+    visLayout->addWidget(visBiasCheck, r,0,1,2); r++;
+    visLayout->addWidget(visStatsCheck, r,0,1,2); r++;
+    visLayout->addWidget(visRawCheck, r,0,1,2); r++;
+    visLayout->addWidget(exportBtn, r,0,1,2);
+    hiddenLayerLayout->insertWidget(1, visGroup);
+
     // Disable buttons that require data
     ui->btnTrain->setEnabled(false);
     ui->btnEvaluate->setEnabled(false);
@@ -153,6 +173,23 @@ void MainWindow::initializeUI()
 
     // Initialize current hidden layer index
     currentHiddenLayerIndex = 0;
+}
+
+void MainWindow::onExportVisualizationsClicked() {
+    if (!nnBackend || !nnBackend->hasModel()) {
+        QMessageBox::warning(this, "Export", "No model loaded.");
+        return;
+    }
+    QString outDir = QFileDialog::getExistingDirectory(this, "Select Output Directory");
+    if (outDir.isEmpty()) return;
+    NN_VisMode mode = (visModeCombo && visModeCombo->currentIndex()==1) ? NN_VIS_MODE_HEATMAP : NN_VIS_MODE_WEIGHTS;
+    NN_VisScale scale = (visScaleCombo && visScaleCombo->currentIndex()==1) ? NN_VIS_SCALE_SYM_ZERO : NN_VIS_SCALE_MINMAX;
+    bool includeBias = visBiasCheck && visBiasCheck->isChecked();
+    bool includeStats = visStatsCheck && visStatsCheck->isChecked();
+    bool raw = visRawCheck && visRawCheck->isChecked();
+    bool ok = nnBackend->exportVisualizations(outDir, mode, scale, includeBias, includeStats, raw);
+    if (ok) QMessageBox::information(this, "Export", "Visualizations exported.");
+    else QMessageBox::critical(this, "Export", "Export failed.");
 }
 
 void MainWindow::loadImagesFromDir(const QString& dir, QStringList& imageList)
