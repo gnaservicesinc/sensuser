@@ -47,8 +47,25 @@ Future Enhancements [TODO]:
 	(✓)	Support for more hidden layers, configurable by the user.
 	⁃	Different activation functions (Tanh, ReLU, Leaky ReLU).
 	⁃	Different optimization algorithms (Adam, RMSprop).
-	⁃	Regularization techniques (L1, L2, Dropout) to prevent overfitting.
+	(✓)	Regularization techniques (L1, L2, Dropout) to prevent overfitting.
 	⁃	Data augmentation for images (rotation, flipping, small translations).
 	⁃	Saving/loading training progress (checkpoints).
 	⁃	More detailed performance metrics (precision, recall, F1-score, ROC curve).
 	⁃	Implement better parallelization multithreading in the sensor to increase the training speed of the sensor.
+
+Regularization (L1, L2, Dropout)
+---------------------------------
+
+- Backend support is implemented in `MLP`/`Layer`.
+- Defaults are off to preserve existing behavior.
+- Example (after creating `MLP` in `MainWindow`):
+
+```cpp
+// Enable mild L2 and dropout on hidden layers
+mlp->setL1L2(0.0f, 1e-4f);   // L1, L2
+mlp->setDropoutRate(0.2f);    // 20% dropout (training only)
+```
+
+Notes
+- Dropout is applied to hidden layers only and is active during training, not during prediction/export.
+- L1/L2 affect weight gradients; biases are not regularized.

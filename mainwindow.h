@@ -17,9 +17,9 @@
 #include <QSpinBox>
 #include <QComboBox>
 
-#include "mlp.h"
 #include "trainingworker.h"
 #include "losscurvewidget.h"
+#include "noodlenet_backend.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -39,6 +39,7 @@ private slots:
     // Setup & Training tab
     void on_btnLoadPositive_clicked();
     void on_btnLoadNegative_clicked();
+    void on_btnLoadValidation_clicked();
     void on_btnNextImage_clicked();
     void on_btnPrevImage_clicked();
     void on_btnTrain_clicked();
@@ -65,8 +66,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
-    // MLP
-    MLP* mlp;
+    // (Internal MLP removed; backend provides model)
 
     // Training worker
     QThread workerThread;
@@ -77,6 +77,7 @@ private:
     QString negativeDir;
     QStringList positiveImages;
     QStringList negativeImages;
+    QString validationDir;
     int currentImageIndex;
     QImage currentImage;
     bool isCurrentImagePositive;
@@ -100,6 +101,9 @@ private:
     QComboBox* hiddenLayerSelector;
     int currentHiddenLayerIndex;
 
+    // Backend using libnoodlenet for model I/O and predict
+    NoodleNetBackend* nnBackend = nullptr;
+
     // Initialize UI
     void initializeUI();
 
@@ -109,8 +113,8 @@ private:
     // Update hidden layers UI from model
     void updateHiddenLayersUIFromModel();
 
-    // Create MLP from UI configuration
-    void createMLPFromUIConfig();
+    // Create backend model from UI configuration
+    void createModelFromUIConfig();
 
     // Load images from directory
     void loadImagesFromDir(const QString& dir, QStringList& imageList);
@@ -129,6 +133,9 @@ private:
 
     // Update output layer visualization
     void updateOutputLayerVisualization();
+
+private slots:
+    void on_btnLoadValidation_clicked();
 };
 
 #endif // MAINWINDOW_H

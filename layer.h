@@ -58,6 +58,11 @@ public:
      * @param epsilon Small constant for numerical stability (default: 1e-8)
      */
     void setAdamHyperparameters(float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-8f);
+
+    // Regularization and dropout controls
+    void setRegularization(float l1, float l2);
+    void setDropout(float rate);
+    void setTrainingMode(bool training);
     
     /**
      * @brief Get the weights of the layer
@@ -135,6 +140,11 @@ private:
     Eigen::VectorXf lastZ;
     Eigen::VectorXf lastOutput;
 
+    // Dropout cache and controls
+    bool trainingMode = false;
+    float dropoutRate = 0.0f; // 0..1, probability to drop a unit
+    Eigen::VectorXf dropoutMask; // same size as output
+
     // Optimizer state variables
     Eigen::MatrixXf m_weights;  ///< First moment for weights (Adam)
     Eigen::VectorXf m_biases;   ///< First moment for biases (Adam)
@@ -145,6 +155,10 @@ private:
     float adamBeta1;    ///< First moment decay rate (default: 0.9)
     float adamBeta2;    ///< Second moment decay rate (default: 0.999)
     float adamEpsilon;  ///< Small constant for numerical stability (default: 1e-8)
+
+    // Regularization strengths (applied to weights only)
+    float l1_lambda = 0.0f;
+    float l2_lambda = 0.0f;
 
     // Initialize activation functions based on name
     void initializeActivationFunctions();

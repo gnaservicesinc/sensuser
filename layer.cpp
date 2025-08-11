@@ -35,6 +35,9 @@ Layer::Layer(int inputSize, int outputSize, const std::string& activationFunctio
 
     // Initialize activation functions
     initializeActivationFunctions();
+
+    // Initialize dropout mask
+    dropoutMask = Eigen::VectorXf::Ones(outputSize);
 }
 
 void Layer::initializeActivationFunctions()
@@ -93,7 +96,29 @@ Eigen::VectorXf Layer::forward(const Eigen::VectorXf& input)
     for (int i = 0; i < outputSize; ++i) {
         lastOutput(i) = activation(lastZ(i));
     }
-    
+    // Apply inverted dropout during training
+    if (trainingMode && dropoutRate > 0.0f) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+        float keepProb = 1.0f - dropoutRate;
+        if (keepProb <= 0.0f) {
+            // Drop everything (degenerate); keep output zeros
+            dropoutMask = Eigen::VectorXf::Zero(outputSize);
+            lastOutput.setZero();
+        } else {
+            dropoutMask.resize(outputSize);
+            for (int i = 0; i < outputSize; ++i) {
+                float r = dis(gen);
+                dropoutMask(i) = (r < keepProb) ? (1.0f / keepProb) : 0.0f;
+            }
+            lastOutput = lastOutput.array() * dropoutMask.array();
+        }
+    } else {
+        // No dropout
+        dropoutMask.setOnes();
+    }
+
     return lastOutput;
 }
 
@@ -114,6 +139,10 @@ Eigen::VectorXf Layer::backward(const Eigen::VectorXf& outputGradient, float lea
 
     // Element-wise multiplication of output gradient and activation gradient
     Eigen::VectorXf delta = outputGradient.array() * activationGradient.array();
+    // Backprop through dropout: multiply by the same mask used in forward
+    if (trainingMode && dropoutRate > 0.0f) {
+        delta = delta.array() * dropoutMask.array();
+    }
 
     // Calculate gradient for the previous layer
     Eigen::VectorXf inputGradient = weights.transpose() * delta;
@@ -150,10 +179,44 @@ void Layer::setAdamHyperparameters(float beta1, float beta2, float epsilon)
     adamEpsilon = epsilon;
 }
 
+void Layer::setRegularization(float l1, float l2)
+{
+    l1_lambda = std::max(0.0f, l1);
+    l2_lambda = std::max(0.0f, l2);
+}
+
+void Layer::setDropout(float rate)
+{
+    // Clamp to [0, 0.9] to avoid degenerate networks
+    if (rate < 0.0f) rate = 0.0f;
+    if (rate > 0.9f) rate = 0.9f;
+    dropoutRate = rate;
+}
+
+void Layer::setTrainingMode(bool training)
+{
+    trainingMode = training;
+}
+
 void Layer::applySGD(const Eigen::VectorXf& delta, float learningRate)
 {
     // Standard SGD update
-    weights -= learningRate * (delta * lastInput.transpose());
+    Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
+    // Add L2 and L1 regularization to weight gradients
+    if (l2_lambda > 0.0f) {
+        weightGradients += l2_lambda * weights;
+    }
+    if (l1_lambda > 0.0f) {
+        Eigen::MatrixXf signW = Eigen::MatrixXf::Zero(weights.rows(), weights.cols());
+        for (int r = 0; r < weights.rows(); ++r) {
+            for (int c = 0; c < weights.cols(); ++c) {
+                float w = weights(r, c);
+                signW(r, c) = (w > 0.0f) ? 1.0f : ((w < 0.0f) ? -1.0f : 0.0f);
+            }
+        }
+        weightGradients += l1_lambda * signW;
+    }
+    weights -= learningRate * weightGradients;
     biases -= learningRate * delta;
 }
 
@@ -165,6 +228,19 @@ void Layer::applyRMSprop(const Eigen::VectorXf& delta, float learningRate)
 
     // Calculate weight gradients
     Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
+    if (l2_lambda > 0.0f) {
+        weightGradients += l2_lambda * weights;
+    }
+    if (l1_lambda > 0.0f) {
+        Eigen::MatrixXf signW = Eigen::MatrixXf::Zero(weights.rows(), weights.cols());
+        for (int r = 0; r < weights.rows(); ++r) {
+            for (int c = 0; c < weights.cols(); ++c) {
+                float w = weights(r, c);
+                signW(r, c) = (w > 0.0f) ? 1.0f : ((w < 0.0f) ? -1.0f : 0.0f);
+            }
+        }
+        weightGradients += l1_lambda * signW;
+    }
 
     // Update second moment for weights: v = beta * v + (1 - beta) * gradient^2
     v_weights = beta * v_weights + (1.0f - beta) * weightGradients.array().square().matrix();
@@ -188,6 +264,19 @@ void Layer::applyAdam(const Eigen::VectorXf& delta, float learningRate, int time
 
     // Calculate weight gradients
     Eigen::MatrixXf weightGradients = delta * lastInput.transpose();
+    if (l2_lambda > 0.0f) {
+        weightGradients += l2_lambda * weights;
+    }
+    if (l1_lambda > 0.0f) {
+        Eigen::MatrixXf signW = Eigen::MatrixXf::Zero(weights.rows(), weights.cols());
+        for (int r = 0; r < weights.rows(); ++r) {
+            for (int c = 0; c < weights.cols(); ++c) {
+                float w = weights(r, c);
+                signW(r, c) = (w > 0.0f) ? 1.0f : ((w < 0.0f) ? -1.0f : 0.0f);
+            }
+        }
+        weightGradients += l1_lambda * signW;
+    }
 
     // Update first moment for weights: m = beta1 * m + (1 - beta1) * gradient
     m_weights = beta1 * m_weights + (1.0f - beta1) * weightGradients;

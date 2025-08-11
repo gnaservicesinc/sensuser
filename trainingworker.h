@@ -1,7 +1,7 @@
 #ifndef TRAININGWORKER_H
 #define TRAININGWORKER_H
 
-#include "mlp.h"
+#include "noodlenet_backend.h"
 #include <QObject>
 #include <QThread>
 #include <QMutex>
@@ -23,7 +23,7 @@ public:
      * @param mlp Pointer to the MLP to train
      * @param parent Parent object
      */
-    explicit TrainingWorker(MLP* mlp, QObject* parent = nullptr);
+    explicit TrainingWorker(NoodleNetBackend* backend = nullptr, QObject* parent = nullptr);
 
     /**
      * @brief Set the positive examples directory
@@ -36,6 +36,7 @@ public:
      * @param dir Directory containing negative examples
      */
     void setNegativeDir(const QString& dir);
+    void setValidationDir(const QString& dir);
 
     /**
      * @brief Set the learning rate
@@ -134,9 +135,10 @@ signals:
     void evaluationComplete(float accuracy, int truePositives, int trueNegatives, int falsePositives, int falseNegatives);
 
 private:
-    MLP* mlp;
+    NoodleNetBackend* backend;
     QString positiveDir;
     QString negativeDir;
+    QString validationDir;
     float learningRate;
     int epochs;
     int batchSize;

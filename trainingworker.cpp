@@ -7,8 +7,8 @@
 #include <algorithm>
 #include <random>
 
-TrainingWorker::TrainingWorker(MLP* mlp, QObject* parent)
-    : QObject(parent), mlp(mlp), learningRate(0.01f), epochs(100), batchSize(10), shuffle(true),
+TrainingWorker::TrainingWorker(NoodleNetBackend* backend, QObject* parent)
+    : QObject(parent), backend(backend), learningRate(0.01f), epochs(100), batchSize(10), shuffle(true),
       optimizer(OptimizerType::SGD), stopRequested(false)
 {
     clearLossHistory();
@@ -24,6 +24,12 @@ void TrainingWorker::setNegativeDir(const QString& dir)
 {
     QMutexLocker locker(&mutex);
     negativeDir = dir;
+}
+
+void TrainingWorker::setValidationDir(const QString& dir)
+{
+    QMutexLocker locker(&mutex);
+    validationDir = dir;
 }
 
 void TrainingWorker::setLearningRate(float rate)
@@ -110,6 +116,7 @@ void TrainingWorker::train()
     // Local variables to store thread-safe copies of the parameters
     QString localPositiveDir;
     QString localNegativeDir;
+    QString localValidationDir;
     float localLearningRate;
     int localEpochs;
     int localBatchSize;
@@ -126,6 +133,7 @@ void TrainingWorker::train()
         // Make local copies of all parameters
         localPositiveDir = positiveDir;
         localNegativeDir = negativeDir;
+        localValidationDir = validationDir;
         localLearningRate = learningRate;
         localEpochs = epochs;
         localBatchSize = batchSize;
@@ -137,99 +145,71 @@ void TrainingWorker::train()
         m_validationLossHistory.clear();
     }
 
-    // Reset optimizer state when starting training
-    mlp->resetOptimizerState();
-
-    // Load positive examples - done outside the mutex lock
-    std::vector<QImage> positiveImages = loadImages(localPositiveDir);
-    if (positiveImages.empty()) {
-        qWarning() << "No positive images found in" << localPositiveDir;
-        emit trainingComplete(0.0f);
-        return;
-    }
-
-    // Prepare training data
-    std::vector<Eigen::VectorXf> inputs;
-    std::vector<Eigen::VectorXf> targets;
-
-    // Process positive examples
-    for (const auto& image : positiveImages) {
-        inputs.push_back(mlp->preprocessImage(image));
-        targets.push_back(Eigen::VectorXf::Ones(1));
-    }
-
-    // Process negative examples if available
-    if (!localNegativeDir.isEmpty()) {
-        std::vector<QImage> negativeImages = loadImages(localNegativeDir);
-        for (const auto& image : negativeImages) {
-            inputs.push_back(mlp->preprocessImage(image));
-            targets.push_back(Eigen::VectorXf::Zero(1));
-        }
-    }
-
-    // Training loop
+    // Training loop (lib-backed): call one step at a time to emit progress
     float totalLoss = 0.0f;
-
+    // set optimizer on backend based on selected optimizer
+    if (backend) {
+        backend->setOptimizer(localOptimizer);
+    }
     for (int epoch = 0; epoch < localEpochs; ++epoch) {
         // Check if stop requested before each epoch
         {
             QMutexLocker locker(&mutex);
             if (stopRequested) {
-                emit trainingComplete(totalLoss / inputs.size());
+                emit trainingComplete(totalLoss);
                 return;
             }
         }
 
-        // Shuffle data if requested
-        if (localShuffle) {
-            std::random_device rd;
-            std::mt19937 g(rd());
-
-            std::vector<int> indices(inputs.size());
-            for (size_t i = 0; i < indices.size(); ++i) {
-                indices[i] = static_cast<int>(i);
-            }
-            std::shuffle(indices.begin(), indices.end(), g);
-
-            std::vector<Eigen::VectorXf> shuffledInputs;
-            std::vector<Eigen::VectorXf> shuffledTargets;
-
-            for (int idx : indices) {
-                shuffledInputs.push_back(inputs[idx]);
-                shuffledTargets.push_back(targets[idx]);
-            }
-
-            inputs = shuffledInputs;
-            targets = shuffledTargets;
+        // One training step using libnoodlenet
+        float lastLoss = 0.0f;
+        bool ok = (backend && backend->trainFromDirs(localPositiveDir,
+                                                     localNegativeDir,
+                                                     localValidationDir,
+                                                     /*steps*/1,
+                                                     localBatchSize,
+                                                     localLearningRate,
+                                                     /*l1*/0.0f,
+                                                     /*l2*/0.0f,
+                                                     lastLoss));
+        if (!ok) {
+            qWarning() << "Training step failed (libnoodlenet).";
         }
 
-        // Train on batches
-        totalLoss = 0.0f;
-        for (size_t i = 0; i < inputs.size(); i += localBatchSize) {
-            size_t batchEnd = std::min(i + static_cast<size_t>(localBatchSize), inputs.size());
-            float batchLoss = 0.0f;
-
-            for (size_t j = i; j < batchEnd; ++j) {
-                batchLoss += mlp->trainWithGranularLocking(inputs[j], targets[j], localLearningRate, localOptimizer);
+        float avgLoss = lastLoss;
+        // Compute validation loss (sample from available dirs if both set)
+        float valLoss = -1.0f;
+        if (backend && !localPositiveDir.isEmpty() && !localNegativeDir.isEmpty()) {
+            // Sample up to N images from each dir and compute BCE
+            const int maxPerClass = 64;
+            int count = 0;
+            double sumLoss = 0.0;
+            // Prefer validation dir if provided; otherwise fallback to training dirs
+            QString posDirForVal = !localValidationDir.isEmpty() ? (localValidationDir + "/pos") : localPositiveDir;
+            QString negDirForVal = !localValidationDir.isEmpty() ? (localValidationDir + "/neg") : localNegativeDir;
+            // Iterate positives
+            int posCount = 0;
+            QDirIterator itp(posDirForVal, QStringList() << "*.png" << "*.bmp" << "*.jpg" << "*.jpeg", QDir::Files, QDirIterator::Subdirectories);
+            while (itp.hasNext() && posCount < maxPerClass) {
+                QString p = itp.next();
+                QImageReader r(p); QImage img = r.read(); if (img.isNull()) continue;
+                float prob = backend->predict(img);
+                if (prob >= 0.0f) { double l = -(log(std::max(1e-7f, prob))); sumLoss += l; count++; }
+                posCount++;
             }
-
-            totalLoss += batchLoss;
-
-            // Give UI thread a chance to run by yielding briefly
-            QThread::msleep(1);
-
-            // Check if stop requested periodically
-            {
-                QMutexLocker locker(&mutex);
-                if (stopRequested) {
-                    emit trainingComplete(totalLoss / inputs.size());
-                    return;
-                }
+            // Iterate negatives
+            int negCount = 0;
+            QDirIterator itn(negDirForVal, QStringList() << "*.png" << "*.bmp" << "*.jpg" << "*.jpeg", QDir::Files, QDirIterator::Subdirectories);
+            while (itn.hasNext() && negCount < maxPerClass) {
+                QString p = itn.next();
+                QImageReader r(p); QImage img = r.read(); if (img.isNull()) continue;
+                float prob = backend->predict(img);
+                if (prob >= 0.0f) { double l = -(log(std::max(1e-7f, 1.0f - prob))); sumLoss += l; count++; }
+                negCount++;
             }
+            if (count > 0) valLoss = (float)(sumLoss / count);
         }
-
-        // Calculate average loss
-        float avgLoss = totalLoss / inputs.size();
+        totalLoss = avgLoss;
 
         // Store loss history - need to lock mutex for this
         {
@@ -239,11 +219,11 @@ void TrainingWorker::train()
 
         // Emit progress and epoch completion - done outside the mutex lock
         emit progressUpdated(epoch + 1, localEpochs, avgLoss);
-        emit epochCompleted(epoch + 1, avgLoss);
+        emit epochCompleted(epoch + 1, avgLoss, valLoss);
     }
 
     // Training complete
-    emit trainingComplete(totalLoss / inputs.size());
+    emit trainingComplete(totalLoss);
 }
 
 void TrainingWorker::evaluate()
@@ -259,52 +239,13 @@ void TrainingWorker::evaluate()
         localNegativeDir = negativeDir;
     }
 
-    // Load positive examples - done outside the mutex lock
-    std::vector<QImage> positiveImages = loadImages(localPositiveDir);
-    if (positiveImages.empty()) {
-        qWarning() << "No positive images found in" << localPositiveDir;
+    // Evaluate using libnoodlenet
+    float accuracy = 0.0f;
+    int tp=0, tn=0, fp=0, fn=0;
+    bool ok = (backend && backend->evaluateDirs(localPositiveDir, localNegativeDir, accuracy, tp, tn, fp, fn));
+    if (!ok) {
         emit evaluationComplete(0.0f, 0, 0, 0, 0);
         return;
     }
-
-    // Load negative examples
-    std::vector<QImage> negativeImages = loadImages(localNegativeDir);
-    if (negativeImages.empty()) {
-        qWarning() << "No negative images found in" << localNegativeDir;
-        emit evaluationComplete(0.0f, 0, 0, 0, 0);
-        return;
-    }
-
-    // Evaluate on positive examples
-    int truePositives = 0;
-    int falseNegatives = 0;
-
-    for (const auto& image : positiveImages) {
-        float prediction = mlp->predict(image);
-        if (prediction >= 0.5f) {
-            truePositives++;
-        } else {
-            falseNegatives++;
-        }
-    }
-
-    // Evaluate on negative examples
-    int trueNegatives = 0;
-    int falsePositives = 0;
-
-    for (const auto& image : negativeImages) {
-        float prediction = mlp->predict(image);
-        if (prediction < 0.5f) {
-            trueNegatives++;
-        } else {
-            falsePositives++;
-        }
-    }
-
-    // Calculate accuracy
-    int totalSamples = positiveImages.size() + negativeImages.size();
-    float accuracy = static_cast<float>(truePositives + trueNegatives) / totalSamples;
-
-    // Emit evaluation results
-    emit evaluationComplete(accuracy, truePositives, trueNegatives, falsePositives, falseNegatives);
+    emit evaluationComplete(accuracy, tp, tn, fp, fn);
 }

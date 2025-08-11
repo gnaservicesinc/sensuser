@@ -96,6 +96,11 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
 {
     QWriteLocker locker(&rwLock);
 
+    // Enable training mode (activates dropout)
+    for (size_t i = 0; i < layers.size(); ++i) {
+        layers[i].setTrainingMode(true);
+    }
+
     // Forward pass (use unsafe version since we already have the lock)
     Eigen::VectorXf output = forwardUnsafe(input);
 
@@ -119,6 +124,11 @@ float MLP::train(const Eigen::VectorXf& input, const Eigen::VectorXf& target, fl
         }
     }
 
+    // Disable training mode after update
+    for (size_t i = 0; i < layers.size(); ++i) {
+        layers[i].setTrainingMode(false);
+    }
+
     return loss;
 }
 
@@ -133,6 +143,9 @@ float MLP::trainWithGranularLocking(const Eigen::VectorXf& input, const Eigen::V
     // Forward pass with read lock (allows concurrent reads)
     {
         QReadLocker locker(&rwLock);
+        for (size_t i = 0; i < layers.size(); ++i) {
+            layers[i].setTrainingMode(true);
+        }
         output = forwardUnsafe(input);
         loss = calculateLoss(output, target);
         gradient = calculateLossGradient(output, target);
@@ -154,6 +167,14 @@ float MLP::trainWithGranularLocking(const Eigen::VectorXf& input, const Eigen::V
             for (int i = layers.size() - 1; i >= 0; --i) {
                 gradient = layers[i].backward(gradient, learningRate, optimizer, timestep);
             }
+        }
+    }
+
+    // Disable training mode after update
+    {
+        QWriteLocker locker(&rwLock);
+        for (size_t i = 0; i < layers.size(); ++i) {
+            layers[i].setTrainingMode(false);
         }
     }
 
@@ -181,6 +202,25 @@ void MLP::setAdamHyperparameters(float beta1, float beta2, float epsilon)
     for (auto& layer : layers) {
         layer.setAdamHyperparameters(beta1, beta2, epsilon);
     }
+}
+
+void MLP::setL1L2(float l1, float l2)
+{
+    QWriteLocker locker(&rwLock);
+    for (size_t i = 0; i < layers.size(); ++i) {
+        layers[i].setRegularization(l1, l2);
+    }
+}
+
+void MLP::setDropoutRate(float rate)
+{
+    QWriteLocker locker(&rwLock);
+    if (layers.empty()) return;
+    // Apply dropout to all hidden layers; keep output layer at 0
+    for (size_t i = 0; i + 1 < layers.size(); ++i) {
+        layers[i].setDropout(rate);
+    }
+    layers.back().setDropout(0.0f);
 }
 
 float MLP::calculateLoss(const Eigen::VectorXf& output, const Eigen::VectorXf& target) const

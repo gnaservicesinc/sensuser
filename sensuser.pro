@@ -8,25 +8,21 @@ CONFIG += c++17
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
-# Eigen is a header-only library, so we just need to add the include path
-# Make sure to install Eigen or adjust the path accordingly
-INCLUDEPATH += /usr/local/include/Eigen
+## Internal MLP removed; Eigen not needed
 
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    mlp.cpp \
-    layer.cpp \
     trainingworker.cpp \
-    losscurvewidget.cpp
+    losscurvewidget.cpp \
+    noodlenet_backend.cpp
 
 HEADERS += \
     mainwindow.h \
-    mlp.h \
-    layer.h \
     trainingworker.h \
     losscurvewidget.h \
-    optimizertypes.h
+    optimizertypes.h \
+    noodlenet_backend.h
 
 FORMS += \
     mainwindow.ui
@@ -40,3 +36,10 @@ CONFIG += embed_translations
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+# Link system-installed libnoodlenet by default
+INCLUDEPATH += /usr/local/include
+LIBS += -L/usr/local/lib -lnoodlenet
+
+# Workaround for newer macOS SDKs where AGL is removed; strip if injected
+LIBS -= -framework AGL

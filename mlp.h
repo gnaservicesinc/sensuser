@@ -120,6 +120,10 @@ public:
      */
     void setAdamHyperparameters(float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-8f);
 
+    // Regularization controls (applied to all layers; dropout not applied to final output layer)
+    void setL1L2(float l1 = 0.0f, float l2 = 0.0f);
+    void setDropoutRate(float rate = 0.0f);
+
     /**
      * @brief Preprocess an image for input to the network
      * @param image Input image

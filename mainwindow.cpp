@@ -16,11 +16,11 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(static_cast<QMainWindow*>(this));
 
-    // Initialize MLP with 512x512 input, 128 hidden neurons, and 1 output neuron
-    mlp = new MLP(512 * 512, 128, 1, "sigmoid", "sigmoid");
+    // Initialize backend (libnoodlenet)
+    nnBackend = new NoodleNetBackend();
 
     // Initialize worker thread
-    worker = new TrainingWorker(mlp);
+    worker = new TrainingWorker(nnBackend);
     worker->moveToThread(&workerThread);
 
     // Connect signals and slots
@@ -42,13 +42,14 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // Free backend
+    delete nnBackend;
     // Stop worker thread
     worker->stop();
     workerThread.quit();
     workerThread.wait();
 
     // Clean up
-    delete mlp;
     delete ui;
 
     // Clean up graphics scenes
@@ -83,6 +84,7 @@ void MainWindow::initializeUI()
     // Initialize UI elements
     ui->lblPositiveDir->setText("Not set");
     ui->lblNegativeDir->setText("Not set");
+    if (ui->lblValidationDir) ui->lblValidationDir->setText("Not set");
     ui->lblCurrentImage->setText("No image loaded");
     ui->lblPrediction->setText("No prediction");
     ui->lblAccuracy->setText("No evaluation");
@@ -218,7 +220,12 @@ void MainWindow::updateCurrentImage()
 
     // Make prediction
     try {
-        if (mlp) {
+        if (nnBackend && nnBackend->hasModel()) {
+            float prediction = nnBackend->predict(currentImage);
+            QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
+                                    .arg(prediction, 0, 'f', 4);
+            ui->lblPrediction->setText(predictionText);
+        } else if (mlp) {
             float prediction = mlp->predict(currentImage);
             QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
                                     .arg(prediction, 0, 'f', 4);
@@ -243,7 +250,7 @@ void MainWindow::updateCurrentImage()
 void MainWindow::updateLayerVisualizations()
 {
     try {
-        if (!currentImage.isNull() && mlp) {
+        if (!currentImage.isNull()) {
             updateInputLayerVisualization();
             updateHiddenLayerVisualization();
             updateOutputLayerVisualization();
@@ -306,27 +313,12 @@ void MainWindow::updateHiddenLayerVisualization()
         return; // Safety check
     }
 
-    if (currentImage.isNull() || !mlp) {
+    if (currentImage.isNull() || !nnBackend || !nnBackend->hasModel()) {
         return;
     }
-
-    // Try to get a thread-safe copy of the layers without blocking for too long
-    std::vector<Layer> layersCopy;
-
     try {
-        // Try to get layers copy with a short timeout to avoid blocking UI
-        if (!mlp->tryGetLayersCopy(layersCopy, 50)) {
-            // If we can't get the layers quickly, show a "busy" message
-            hiddenLayerScene->addText("Model is busy training...\nVisualization will update when available.");
-            return;
-        }
-
-        // Get hidden layer activations using thread-safe forward pass
-        Eigen::VectorXf input = mlp->preprocessImage(currentImage);
-        mlp->forward(input);
-
-        // Get number of hidden layers
-        int numHiddenLayers = mlp->getNumHiddenLayers();
+        // Get number of hidden layers from backend
+        int numHiddenLayers = nnBackend->numHidden();
         if (numHiddenLayers == 0) {
             // No hidden layers to visualize
             hiddenLayerScene->addText("No hidden layers in this model");
@@ -366,22 +358,21 @@ void MainWindow::updateHiddenLayerVisualization()
 
     try {
         // Safety checks
-        if (!mlp || layersCopy.empty() || currentHiddenLayerIndex < 0) {
+        if (currentHiddenLayerIndex < 0) {
             return;
         }
 
-        // Get the selected hidden layer
+        // Get the selected hidden layer index (0-based among hidden layers). Lib layer index = hiddenIndex+1.
         int layerIdx = currentHiddenLayerIndex;
-        if (layerIdx >= static_cast<int>(layersCopy.size()) - 1) {
+        int totalLayers = nnBackend->numWeightLayers();
+        if (layerIdx < 0 || layerIdx >= nnBackend->numHidden()) {
             // Invalid layer index
             hiddenLayerScene->addText("Invalid layer index");
             return;
         }
-
-        const Layer& hiddenLayer = layersCopy[layerIdx];
-        const Eigen::VectorXf& activations = hiddenLayer.getLastOutput();
-
-        if (activations.size() == 0) {
+        // Compute activations for this hidden layer
+        std::vector<float> activations;
+        if (!nnBackend->computeActivations(currentImage, layerIdx + 1, activations) || activations.empty()) {
             // No activations available
             hiddenLayerScene->addText("No activations available for this layer");
             return;
@@ -397,16 +388,18 @@ void MainWindow::updateHiddenLayerVisualization()
         layerTitle->setPos(10, 10);
 
         // Add layer info
+        int inDim = 0, outDim = 0;
+        nnBackend->layerDims(layerIdx, inDim, outDim); // dims for weights; for hidden, outDim == neuron count
+        auto actEnum = nnBackend->hiddenActivation(layerIdx);
+        const char* actName = (actEnum==NN_ACTIVATION_FUNCTION_TANH?"tanh": actEnum==NN_ACTIVATION_FUNCTION_RELU?"relu": actEnum==NN_ACTIVATION_FUNCTION_LEAKY_RELU?"leaky_relu":"sigmoid");
         QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(
-            QString("Neurons: %1, Activation: %2")
-                .arg(hiddenLayer.getOutputSize())
-                .arg(QString::fromStdString(hiddenLayer.getActivationFunction()))
+            QString("Neurons: %1, Activation: %2").arg(outDim).arg(actName)
         );
         layerInfo->setDefaultTextColor(Qt::white);
         layerInfo->setPos(10, layerTitle->boundingRect().height() + 20);
 
         // Determine grid size for this layer
-        int hiddenSize = hiddenLayer.getOutputSize();
+        int hiddenSize = outDim;
         int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
 
         // Calculate cell size - make it larger for better visibility
@@ -423,12 +416,12 @@ void MainWindow::updateHiddenLayerVisualization()
         gridBackground->setPen(QPen(Qt::white));
 
         // Draw activations as a grid of colored squares
-        for (int i = 0; i < hiddenSize && i < activations.size(); ++i) {
+        for (int i = 0; i < hiddenSize && i < (int)activations.size(); ++i) {
             int row = i / gridSize;
             int col = i % gridSize;
 
             // Map activation to color intensity (0-255)
-            float activation_value = activations(i);
+            float activation_value = activations[i];
             // Clamp activation value to [0, 1] to avoid out-of-range values
             activation_value = std::max(0.0f, std::min(1.0f, activation_value));
             int intensity = static_cast<int>(activation_value * 255);
@@ -446,7 +439,7 @@ void MainWindow::updateHiddenLayerVisualization()
 
             // Add tooltip with neuron index and activation value
             QGraphicsTextItem* tooltip = hiddenLayerScene->addText(
-                QString("Neuron %1: %2").arg(i).arg(activations(i), 0, 'f', 4)
+                QString("Neuron %1: %2").arg(i).arg(activations[i], 0, 'f', 4)
             );
             tooltip->setVisible(false);
             tooltip->setDefaultTextColor(Qt::white);
@@ -500,10 +493,9 @@ void MainWindow::updateHiddenLayerVisualization()
         int hiddenSize = 0;
         int gridSize = 0;
 
-        if (mlp && currentHiddenLayerIndex >= 0 &&
-            currentHiddenLayerIndex < static_cast<int>(layersCopy.size())) {
-            const Layer& hiddenLayer = layersCopy[currentHiddenLayerIndex];
-            hiddenSize = hiddenLayer.getOutputSize();
+        if (currentHiddenLayerIndex >= 0) {
+            int inDim2=0,outDim2=0; nnBackend->layerDims(currentHiddenLayerIndex, inDim2, outDim2);
+            hiddenSize = outDim2;
             gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
         } else {
             return; // Can't proceed without valid layer info
@@ -579,38 +571,24 @@ void MainWindow::updateOutputLayerVisualization()
             return; // Safety check
         }
 
-        if (currentImage.isNull() || !mlp) {
-            return;
-        }
+    if (currentImage.isNull() || !nnBackend || !nnBackend->hasModel()) {
+        return;
+    }
 
-        // Try to get a thread-safe copy of the layers without blocking for too long
-        std::vector<Layer> layersCopy;
-        if (!mlp->tryGetLayersCopy(layersCopy, 50)) {
-            // If we can't get the layers quickly, show a "busy" message
-            outputLayerScene->addText("Model is busy training...\nVisualization will update when available.");
-            return;
-        }
-
-        if (layersCopy.empty()) {
-            return;
-        }
-
-        // Get output layer (last layer in the network)
-        const Layer& outputLayer = layersCopy.back();
-        const Eigen::VectorXf& output = outputLayer.getLastOutput();
-        const Eigen::VectorXf& z = outputLayer.getLastZ();
-
-        // Safety check for output size
-        if (output.size() == 0 || z.size() == 0) {
+        // Compute output activations and raw pre-activation (z) via backend
+        int L = nnBackend->numWeightLayers();
+        std::vector<float> out; std::vector<float> z;
+        if (L < 0 || !nnBackend->computeActivations(currentImage, L, out) || out.empty() ||
+            !nnBackend->computePreActivations(currentImage, L, z) || z.empty()) {
             outputLayerScene->addText("No output available");
             return;
         }
 
         // Create text items
-        QString rawOutput = QString("Raw output (z): %1").arg(z(0), 0, 'f', 4);
-        QString activatedOutput = QString("Activated output (sigmoid): %1").arg(output(0), 0, 'f', 4);
+        QString rawOutput = QString("Raw output (z): %1").arg(z[0], 0, 'f', 4);
+        QString activatedOutput = QString("Output probability: %1").arg(out[0], 0, 'f', 4);
         QString thresholdInfo = QString("Classification threshold: 0.5");
-        QString classification = QString("Classification: %1").arg(output(0) >= 0.5 ? "Object Detected" : "Object Not Detected");
+        QString classification = QString("Classification: %1").arg(out[0] >= 0.5 ? "Object Detected" : "Object Not Detected");
 
         QGraphicsTextItem* rawOutputItem = outputLayerScene->addText(rawOutput);
         QGraphicsTextItem* activatedOutputItem = outputLayerScene->addText(activatedOutput);
@@ -633,7 +611,7 @@ void MainWindow::updateOutputLayerVisualization()
         backgroundBar->setBrush(QBrush(Qt::lightGray));
 
         // Output value bar - clamp output to [0, 1] range
-        float outputValue = std::max(0.0f, std::min(1.0f, output(0)));
+        float outputValue = std::max(0.0f, std::min(1.0f, out[0]));
         int outputBarWidth = static_cast<int>(outputValue * barWidth);
         QGraphicsRectItem* outputBar = outputLayerScene->addRect(0, barY, outputBarWidth, barHeight);
         outputBar->setBrush(QBrush(outputValue >= 0.5 ? Qt::green : Qt::red));
@@ -653,16 +631,12 @@ void MainWindow::updateOutputLayerVisualization()
         oneLabel->setPos(barWidth - 20, barY + barHeight + 10);
 
         // Add network architecture information
-        int numHiddenLayers = mlp->getNumHiddenLayers();
-        QString architectureInfo = QString("Network Architecture: %1 input → ").arg(layersCopy[0].getInputSize());
-
-        if (numHiddenLayers > 0) {
-            for (int i = 0; i < numHiddenLayers; ++i) {
-                architectureInfo += QString("%1 → ").arg(layersCopy[i].getOutputSize());
-            }
+        int numHiddenLayers = nnBackend->numHidden();
+        QString architectureInfo = QString("Network Architecture: %1 input → ").arg(nnBackend->inputSize());
+        for (int i = 0; i < numHiddenLayers; ++i) {
+            architectureInfo += QString("%1 → ").arg(nnBackend->hiddenSize(i));
         }
-
-        architectureInfo += QString("%1 output").arg(layersCopy.back().getOutputSize());
+        architectureInfo += QString("%1 output").arg(nnBackend->outputSize());
 
         QGraphicsTextItem* architectureItem = outputLayerScene->addText(architectureInfo);
         architectureItem->setPos(0, barY + barHeight + 50);
@@ -969,34 +943,23 @@ void MainWindow::onHiddenLayerActivationChanged(const QString& activation)
     }
 }
 
-void MainWindow::createMLPFromUIConfig()
+void MainWindow::createModelFromUIConfig()
 {
     // Ensure we have activation functions for all layers
     while (hiddenLayerActivations.size() < hiddenLayerSizes.size()) {
         hiddenLayerActivations.push_back("sigmoid"); // Default for missing activations
     }
 
-    // Create a new MLP with the configured hidden layers and their individual activation functions
-    delete mlp;
-    mlp = new MLP(512 * 512, hiddenLayerSizes, 1, hiddenLayerActivations, "sigmoid");
-
-    // Update worker
-    worker->stop();
-    delete worker;
-    worker = new TrainingWorker(mlp);
-    worker->moveToThread(&workerThread);
-
-    // Connect signals and slots using Qt6 syntax
-    connect(worker, SIGNAL(progressUpdated(int, int, float)), this, SLOT(onTrainingProgressUpdated(int, int, float)));
-    connect(worker, SIGNAL(epochCompleted(int, float, float)), this, SLOT(onEpochCompleted(int, float, float)));
-    connect(worker, SIGNAL(trainingComplete(float)), this, SLOT(onTrainingComplete(float)));
-    connect(worker, SIGNAL(evaluationComplete(float, int, int, int, int)), this, SLOT(onEvaluationComplete(float, int, int, int, int)));
+    // Create libnoodlenet model for prediction/IO
+    if (nnBackend) {
+        nnBackend->createModel(512 * 512, hiddenLayerSizes, hiddenLayerActivations, NN_ACTIVATION_FUNCTION_SIGMOID);
+    }
 }
 
 void MainWindow::on_btnTrain_clicked()
 {
-    // Create a new MLP with the current configuration
-    createMLPFromUIConfig();
+    // Create a new model with the current configuration
+    createModelFromUIConfig();
 
     // Set training parameters
     worker->setPositiveDir(positiveDir);
@@ -1005,6 +968,7 @@ void MainWindow::on_btnTrain_clicked()
     worker->setEpochs(ui->sbEpochs->value());
     worker->setBatchSize(ui->sbBatchSize->value());
     worker->setShuffle(ui->cbShuffle->isChecked());
+    worker->setValidationDir(validationDir);
 
     // Set optimizer type based on combo box selection
     OptimizerType selectedOptimizer = static_cast<OptimizerType>(ui->cbOptimizer->currentIndex());
@@ -1051,39 +1015,12 @@ void MainWindow::on_btnExportModel_clicked()
         return;
     }
 
-    bool success = false;
-
-    // Check which format was selected based on the file extension
     if (filePath.endsWith(".senm", Qt::CaseInsensitive)) {
-        // Save model to binary format
-        success = mlp->saveToBinary(filePath);
-
-        if (success) {
-            QMessageBox::information(this, "Export Successful", "Model exported successfully in binary format.");
-        } else {
-            QMessageBox::critical(this, "Export Failed", "Failed to write model to binary file.");
-        }
+        bool success = nnBackend && nnBackend->hasModel() && nnBackend->saveModel(filePath);
+        if (success) QMessageBox::information(this, "Export Successful", "Model exported successfully in binary format.");
+        else QMessageBox::critical(this, "Export Failed", "Failed to write model to binary file.");
     } else {
-        // Add .json extension if not present
-        if (!filePath.endsWith(".json", Qt::CaseInsensitive)) {
-            filePath += ".json";
-        }
-
-        // Save model to JSON
-        QJsonObject json = mlp->saveToJson();
-        QJsonDocument doc(json);
-        QByteArray jsonData = doc.toJson(QJsonDocument::Indented);
-
-        // Write to file
-        QFile file(filePath);
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(jsonData);
-            file.close();
-            QMessageBox::information(this, "Export Successful", "Model exported successfully in JSON format.");
-            success = true;
-        } else {
-            QMessageBox::critical(this, "Export Failed", "Failed to write model to JSON file.");
-        }
+        QMessageBox::critical(this, "Export Failed", "Only binary .senm export is supported.");
     }
 }
 
@@ -1097,102 +1034,35 @@ void MainWindow::on_btnImportModel_clicked()
         return;
     }
 
-    bool success = false;
-
-    // Check file extension to determine format
     if (filePath.endsWith(".senm", Qt::CaseInsensitive)) {
-        // Load model from binary format
-        success = mlp->loadFromBinary(filePath);
-
-        if (success) {
-            QMessageBox::information(this, "Import Successful", "Model imported successfully from binary format.");
-
+        bool loaded = nnBackend && nnBackend->loadModel(filePath);
+        if (loaded) {
             // Update UI with the loaded model's configuration
-            hiddenLayerSizes = mlp->getHiddenLayerSizes();
-
-            // Extract activation functions from the loaded model
+            hiddenLayerSizes.clear();
             hiddenLayerActivations.clear();
-            for (int i = 0; i < mlp->getNumHiddenLayers(); ++i) {
-                hiddenLayerActivations.push_back(mlp->getLayers()[i].getActivationFunction());
+            int H = nnBackend->numHidden();
+            for (int i = 0; i < H; ++i) {
+                hiddenLayerSizes.push_back(nnBackend->hiddenSize(i));
+                ActivationFunction af = nnBackend->hiddenActivation(i);
+                std::string name = (af == NN_ACTIVATION_FUNCTION_TANH) ? "tanh" :
+                                   (af == NN_ACTIVATION_FUNCTION_RELU) ? "relu" :
+                                   (af == NN_ACTIVATION_FUNCTION_LEAKY_RELU) ? "leaky_relu" : "sigmoid";
+                hiddenLayerActivations.push_back(name);
             }
-
             updateHiddenLayersUIFromModel();
-
-            // Update the hidden layer selector in the visualization tab
             if (hiddenLayerSelector) {
                 hiddenLayerSelector->clear();
                 for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
                     hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
                 }
             }
-
-            // Set activation function (for backward compatibility with the global combo box)
-            if (mlp->getNumHiddenLayers() > 0) {
-                ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
-            }
-
-            // Update current image if available
-            if (!currentImage.isNull()) {
-                updateCurrentImage();
-            }
+            QMessageBox::information(this, "Import Successful", "Model imported successfully from binary format.");
+            if (!currentImage.isNull()) updateCurrentImage();
         } else {
-            QMessageBox::critical(this, "Import Failed", "Failed to load model from binary file. The file may be corrupted or incompatible.");
+            QMessageBox::critical(this, "Import Failed", "Failed to load model from binary file.");
         }
     } else {
-        // Assume JSON format
-        // Read JSON file
-        QFile file(filePath);
-        if (!file.open(QIODevice::ReadOnly)) {
-            QMessageBox::critical(this, "Import Failed", "Failed to open model file.");
-            return;
-        }
-
-        QByteArray jsonData = file.readAll();
-        file.close();
-
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData);
-        if (doc.isNull() || !doc.isObject()) {
-            QMessageBox::critical(this, "Import Failed", "Invalid JSON format.");
-            return;
-        }
-
-        // Load model from JSON
-        if (mlp->loadFromJson(doc.object())) {
-            QMessageBox::information(this, "Import Successful", "Model imported successfully from JSON format.");
-
-            // Update UI with the loaded model's configuration
-            hiddenLayerSizes = mlp->getHiddenLayerSizes();
-
-            // Extract activation functions from the loaded model
-            hiddenLayerActivations.clear();
-            for (int i = 0; i < mlp->getNumHiddenLayers(); ++i) {
-                hiddenLayerActivations.push_back(mlp->getLayers()[i].getActivationFunction());
-            }
-
-            updateHiddenLayersUIFromModel();
-
-            // Update the hidden layer selector in the visualization tab
-            if (hiddenLayerSelector) {
-                hiddenLayerSelector->clear();
-                for (size_t i = 0; i < hiddenLayerSizes.size(); ++i) {
-                    hiddenLayerSelector->addItem(QString("Hidden Layer %1").arg(i + 1));
-                }
-            }
-
-            // Set activation function (for backward compatibility with the global combo box)
-            if (mlp->getNumHiddenLayers() > 0) {
-                ui->cbHiddenActivation->setCurrentText(QString::fromStdString(mlp->getLayers()[0].getActivationFunction()));
-            }
-
-            // Update current image if available
-            if (!currentImage.isNull()) {
-                updateCurrentImage();
-            }
-
-            success = true;
-        } else {
-            QMessageBox::critical(this, "Import Failed", "Failed to load model from JSON file. The model architecture may be incompatible.");
-        }
+        QMessageBox::critical(this, "Import Failed", "Only binary .senm models are supported.");
     }
 }
 
@@ -1253,7 +1123,7 @@ void MainWindow::onEvaluationComplete(float accuracy, int truePositives, int tru
 void MainWindow::onTabChanged(int index)
 {
     // Update visualizations when switching to visualization tabs
-    if (index >= 1 && !currentImage.isNull() && mlp) {
+    if (index >= 1 && !currentImage.isNull()) {
         try {
             updateLayerVisualizations();
         } catch (const std::exception& e) {
@@ -1262,4 +1132,14 @@ void MainWindow::onTabChanged(int index)
             qWarning() << "Unknown exception during tab change visualization update";
         }
     }
+}
+
+void MainWindow::on_btnLoadValidation_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(static_cast<QWidget*>(this), "Select Directory with Validation Examples",
+                                                   QStandardPaths::writableLocation(QStandardPaths::PicturesLocation),
+                                                   QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (dir.isEmpty()) return;
+    validationDir = dir;
+    if (ui->lblValidationDir) ui->lblValidationDir->setText(dir);
 }
