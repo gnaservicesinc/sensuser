@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainwindow.ui'
 **
-** Created by: Qt User Interface Compiler version 6.9.1
+** Created by: Qt User Interface Compiler version 6.10.0
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -50,6 +50,9 @@ public:
     QLabel *label_2;
     QLabel *lblNegativeDir;
     QPushButton *btnLoadNegative;
+    QLabel *label_val;
+    QLabel *lblValidationDir;
+    QPushButton *btnLoadValidation;
     QGroupBox *groupBox_2;
     QGridLayout *gridLayout_2;
     QLabel *label_3;
@@ -74,6 +77,7 @@ public:
     QHBoxLayout *horizontalLayout_3;
     QPushButton *btnExportModel;
     QPushButton *btnImportModel;
+    QPushButton *btnNewModel;
     QSpacerItem *verticalSpacer;
     QVBoxLayout *verticalLayout_4;
     QGroupBox *groupBox_5;
@@ -155,6 +159,21 @@ public:
         btnLoadNegative->setObjectName("btnLoadNegative");
 
         gridLayout->addWidget(btnLoadNegative, 1, 2, 1, 1);
+
+        label_val = new QLabel(groupBox);
+        label_val->setObjectName("label_val");
+
+        gridLayout->addWidget(label_val, 2, 0, 1, 1);
+
+        lblValidationDir = new QLabel(groupBox);
+        lblValidationDir->setObjectName("lblValidationDir");
+
+        gridLayout->addWidget(lblValidationDir, 2, 1, 1, 1);
+
+        btnLoadValidation = new QPushButton(groupBox);
+        btnLoadValidation->setObjectName("btnLoadValidation");
+
+        gridLayout->addWidget(btnLoadValidation, 2, 2, 1, 1);
 
 
         verticalLayout_3->addWidget(groupBox);
@@ -287,6 +306,11 @@ public:
         btnImportModel->setObjectName("btnImportModel");
 
         horizontalLayout_3->addWidget(btnImportModel);
+
+        btnNewModel = new QPushButton(groupBox_4);
+        btnNewModel->setObjectName("btnNewModel");
+
+        horizontalLayout_3->addWidget(btnNewModel);
 
 
         verticalLayout_3->addWidget(groupBox_4);
@@ -440,6 +464,9 @@ public:
         label_2->setText(QCoreApplication::translate("MainWindow", "Negative Examples:", nullptr));
         lblNegativeDir->setText(QCoreApplication::translate("MainWindow", "Not set", nullptr));
         btnLoadNegative->setText(QCoreApplication::translate("MainWindow", "Load", nullptr));
+        label_val->setText(QCoreApplication::translate("MainWindow", "Validation Examples:", nullptr));
+        lblValidationDir->setText(QCoreApplication::translate("MainWindow", "Not set", nullptr));
+        btnLoadValidation->setText(QCoreApplication::translate("MainWindow", "Load", nullptr));
         groupBox_2->setTitle(QCoreApplication::translate("MainWindow", "Network Configuration", nullptr));
         label_3->setText(QCoreApplication::translate("MainWindow", "Hidden Neurons:", nullptr));
         label_4->setText(QCoreApplication::translate("MainWindow", "Hidden Activation:", nullptr));
@@ -461,6 +488,7 @@ public:
         groupBox_4->setTitle(QCoreApplication::translate("MainWindow", "Model Management", nullptr));
         btnExportModel->setText(QCoreApplication::translate("MainWindow", "Export Model", nullptr));
         btnImportModel->setText(QCoreApplication::translate("MainWindow", "Import Model", nullptr));
+        btnNewModel->setText(QCoreApplication::translate("MainWindow", "Start New Model", nullptr));
         groupBox_5->setTitle(QCoreApplication::translate("MainWindow", "Current Image", nullptr));
         lblCurrentImage->setText(QCoreApplication::translate("MainWindow", "No image loaded", nullptr));
         lblImageInfo->setText(QString());

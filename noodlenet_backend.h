@@ -35,6 +35,7 @@ public:
                        const QString& valDir,
                        int steps,
                        int batchSize,
+                       bool shuffle,
                        float learningRate,
                        float l1,
                        float l2,
@@ -72,7 +73,24 @@ public:
                               NN_VisScale scale,
                               bool includeBias,
                               bool includeStats,
-                              bool rawWeightsFull) const;
+                              bool rawWeightsFull,
+                              int onlyLayer /* -1 for all, 0-based for one */) const;
+
+    // Render a hidden layer visualization into a QImage
+    bool renderHiddenLayerVisualization(int layerIndex,
+                                        NN_VisMode mode,
+                                        NN_VisScale scale,
+                                        bool rawWeightsFull,
+                                        QImage& out) const;
+
+    // Metadata helpers
+    bool setDataDirs(const QString& posDir, const QString& negDir, const QString& valDir);
+    bool getDataDirs(QString& posDir, QString& negDir, QString& valDir) const;
+    bool setLockedTrainingParams(int batchSize, float learningRate, bool shuffle, OptimizerType opt);
+    bool getLockedTrainingParams(int& batchSize, float& learningRate, bool& shuffle, OptimizerType& opt) const;
+
+    // Reset and drop current model (unlock UI state upstream)
+    void resetModel();
 
 private:
     static ActivationFunction parseActivation(const std::string& name);

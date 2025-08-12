@@ -68,6 +68,7 @@ bool NoodleNetBackend::trainFromDirs(const QString& posDir,
                                      const QString& valDir,
                                      int steps,
                                      int batchSize,
+                                     bool shuffle,
                                      float learningRate,
                                      float l1,
                                      float l2,
@@ -80,6 +81,7 @@ bool NoodleNetBackend::trainFromDirs(const QString& posDir,
                                 valDir.isEmpty() ? nullptr : valDir.toUtf8().constData(),
                                 steps,
                                 batchSize,
+                                shuffle ? 1 : 0,
                                 learningRate,
                                 l1,
                                 l2,
@@ -178,9 +180,67 @@ bool NoodleNetBackend::exportVisualizations(const QString& outDir,
                                             NN_VisScale scale,
                                             bool includeBias,
                                             bool includeStats,
-                                            bool rawWeightsFull) const {
+                                            bool rawWeightsFull,
+                                            int onlyLayer) const {
     if (!model) return false;
-    NN_VisOptions opts; opts.mode = mode; opts.scale = scale; opts.include_bias = includeBias ? 1 : 0; opts.include_stats = includeStats ? 1 : 0; opts.raw_weights_full = rawWeightsFull ? 1 : 0;
+    NN_VisOptions opts; opts.mode = mode; opts.scale = scale; opts.include_bias = includeBias ? 1 : 0; opts.include_stats = includeStats ? 1 : 0; opts.raw_weights_full = rawWeightsFull ? 1 : 0; opts.only_layer = onlyLayer;
     int rc = nn_export_layer_visualizations_ex(model, outDir.toUtf8().constData(), &opts);
     return rc == 0;
+}
+
+bool NoodleNetBackend::renderHiddenLayerVisualization(int layerIndex,
+                                                      NN_VisMode mode,
+                                                      NN_VisScale scale,
+                                                      bool rawWeightsFull,
+                                                      QImage& out) const {
+    if (!model) return false;
+    NN_VisOptions opts; opts.mode = mode; opts.scale = scale; opts.include_bias = 0; opts.include_stats = 0; opts.raw_weights_full = rawWeightsFull ? 1 : 0; opts.only_layer = layerIndex;
+    unsigned char* pixels = nullptr; int w=0,h=0;
+    int rc = nn_render_hidden_layer_visualization(model, layerIndex, &opts, &pixels, &w, &h);
+    if (rc != 0 || !pixels || w<=0 || h<=0) { if (pixels) free(pixels); return false; }
+    // QImage takes a copy when constructed from const uchar*, so we can free pixels after
+    out = QImage((const uchar*)pixels, w, h, QImage::Format_Grayscale8).copy();
+    free(pixels);
+    return true;
+}
+
+bool NoodleNetBackend::setDataDirs(const QString& posDir, const QString& negDir, const QString& valDir) {
+    if (!model) return false;
+    return nn_model_set_data_dirs(model,
+                                  posDir.isEmpty()?nullptr:posDir.toUtf8().constData(),
+                                  negDir.isEmpty()?nullptr:negDir.toUtf8().constData(),
+                                  valDir.isEmpty()?nullptr:valDir.toUtf8().constData()) == 0;
+}
+
+bool NoodleNetBackend::getDataDirs(QString& posDir, QString& negDir, QString& valDir) const {
+    if (!model) return false;
+    const char *p=nullptr, *n=nullptr, *v=nullptr;
+    if (nn_model_get_data_dirs(model, &p, &n, &v) != 0) return false;
+    posDir = p ? QString::fromUtf8(p) : QString();
+    negDir = n ? QString::fromUtf8(n) : QString();
+    valDir = v ? QString::fromUtf8(v) : QString();
+    return true;
+}
+
+bool NoodleNetBackend::setLockedTrainingParams(int batchSize, float learningRate, bool shuffle, OptimizerType opt) {
+    if (!model) return false;
+    NN_Optimizer o = NN_OPTIMIZER_SGD;
+    switch (opt) { case OptimizerType::RMSprop: o=NN_OPTIMIZER_RMSPROP; break; case OptimizerType::Adam: o=NN_OPTIMIZER_ADAM; break; default: o=NN_OPTIMIZER_SGD; break; }
+    return nn_model_set_locked_training_params(model, batchSize, learningRate, shuffle?1:0, o) == 0;
+}
+
+bool NoodleNetBackend::getLockedTrainingParams(int& batchSize, float& learningRate, bool& shuffle, OptimizerType& opt) const {
+    if (!model) return false;
+    NN_Optimizer o = NN_OPTIMIZER_SGD; int sh=0; int bs=0; float lr=0.0f;
+    if (nn_model_get_locked_training_params(model, &bs, &lr, &sh, &o) != 0) return false;
+    batchSize = bs; learningRate = lr; shuffle = (sh!=0);
+    switch (o) { case NN_OPTIMIZER_RMSPROP: opt = OptimizerType::RMSprop; break; case NN_OPTIMIZER_ADAM: opt = OptimizerType::Adam; break; default: opt = OptimizerType::SGD; break; }
+    return true;
+}
+
+void NoodleNetBackend::resetModel() {
+    if (model) {
+        nn_model_free(model);
+        model = nullptr;
+    }
 }

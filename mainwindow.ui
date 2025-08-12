@@ -286,23 +286,30 @@
               <property name="title">
                <string>Model Management</string>
               </property>
-              <layout class="QHBoxLayout" name="horizontalLayout_3">
-               <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
+              <item>
                 <widget class="QPushButton" name="btnExportModel">
                  <property name="text">
                   <string>Export Model</string>
                  </property>
                 </widget>
-               </item>
-               <item>
+              </item>
+              <item>
                 <widget class="QPushButton" name="btnImportModel">
                  <property name="text">
                   <string>Import Model</string>
                  </property>
                 </widget>
-               </item>
-              </layout>
-             </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnNewModel">
+                <property name="text">
+                 <string>Start New Model</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
             </item>
             <item>
              <spacer name="verticalSpacer">

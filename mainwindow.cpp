@@ -38,6 +38,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Connect tab changed signal
     connect(ui->tabWidget, SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
+    // New Model button
+    connect(ui->btnNewModel, &QPushButton::clicked, this, &MainWindow::on_btnNewModel_clicked);
 }
 
 MainWindow::~MainWindow()
@@ -152,6 +154,9 @@ void MainWindow::initializeUI()
     visRawCheck = new QCheckBox("Raw weights (non-square)", visGroup);
     QPushButton* exportBtn = new QPushButton("Export Visualizations…", visGroup);
     connect(exportBtn, &QPushButton::clicked, this, &MainWindow::onExportVisualizationsClicked);
+    connect(visModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int){ updateHiddenLayerVisualization(); });
+    connect(visScaleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int){ updateHiddenLayerVisualization(); });
+    connect(visRawCheck, &QCheckBox::toggled, this, [this](bool){ updateHiddenLayerVisualization(); });
 
     int r=0; visLayout->addWidget(modeLabel, r,0); visLayout->addWidget(visModeCombo, r,1); r++;
     visLayout->addWidget(scaleLabel, r,0); visLayout->addWidget(visScaleCombo, r,1); r++;
@@ -173,6 +178,8 @@ void MainWindow::initializeUI()
 
     // Initialize current hidden layer index
     currentHiddenLayerIndex = 0;
+    modelLocked = false;
+    trainedSinceLastSave = false;
 }
 
 void MainWindow::onExportVisualizationsClicked() {
@@ -187,7 +194,8 @@ void MainWindow::onExportVisualizationsClicked() {
     bool includeBias = visBiasCheck && visBiasCheck->isChecked();
     bool includeStats = visStatsCheck && visStatsCheck->isChecked();
     bool raw = visRawCheck && visRawCheck->isChecked();
-    bool ok = nnBackend->exportVisualizations(outDir, mode, scale, includeBias, includeStats, raw);
+    int sel = currentHiddenLayerIndex; if (sel < 0) sel = 0; if (sel >= nnBackend->numHidden()) sel = nnBackend->numHidden()-1;
+    bool ok = nnBackend->exportVisualizations(outDir, mode, scale, includeBias, includeStats, raw, sel);
     if (ok) QMessageBox::information(this, "Export", "Visualizations exported.");
     else QMessageBox::critical(this, "Export", "Export failed.");
 }
@@ -259,11 +267,6 @@ void MainWindow::updateCurrentImage()
     try {
         if (nnBackend && nnBackend->hasModel()) {
             float prediction = nnBackend->predict(currentImage);
-            QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
-                                    .arg(prediction, 0, 'f', 4);
-            ui->lblPrediction->setText(predictionText);
-        } else if (mlp) {
-            float prediction = mlp->predict(currentImage);
             QString predictionText = QString("Prediction: %1 (Threshold: 0.5)")
                                     .arg(prediction, 0, 'f', 4);
             ui->lblPrediction->setText(predictionText);
@@ -395,102 +398,41 @@ void MainWindow::updateHiddenLayerVisualization()
 
     try {
         // Safety checks
-        if (currentHiddenLayerIndex < 0) {
-            return;
-        }
-
-        // Get the selected hidden layer index (0-based among hidden layers). Lib layer index = hiddenIndex+1.
+        if (currentHiddenLayerIndex < 0 || !hiddenLayerScene) return;
         int layerIdx = currentHiddenLayerIndex;
-        int totalLayers = nnBackend->numWeightLayers();
-        if (layerIdx < 0 || layerIdx >= nnBackend->numHidden()) {
-            // Invalid layer index
-            hiddenLayerScene->addText("Invalid layer index");
-            return;
-        }
-        // Compute activations for this hidden layer
-        std::vector<float> activations;
-        if (!nnBackend->computeActivations(currentImage, layerIdx + 1, activations) || activations.empty()) {
-            // No activations available
-            hiddenLayerScene->addText("No activations available for this layer");
+        if (layerIdx < 0 || layerIdx >= nnBackend->numHidden()) { hiddenLayerScene->addText("Invalid layer index"); return; }
+
+        // Determine visualization options from UI
+        NN_VisMode mode = (visModeCombo && visModeCombo->currentIndex()==1) ? NN_VIS_MODE_HEATMAP : NN_VIS_MODE_WEIGHTS;
+        NN_VisScale scale = (visScaleCombo && visScaleCombo->currentIndex()==1) ? NN_VIS_SCALE_SYM_ZERO : NN_VIS_SCALE_MINMAX;
+        bool raw = visRawCheck && visRawCheck->isChecked();
+
+        // Render via backend/libnoodlenet
+        QImage img;
+        if (!nnBackend->renderHiddenLayerVisualization(layerIdx, mode, scale, raw, img)) {
+            hiddenLayerScene->addText("Visualization not available");
             return;
         }
 
-        // Add layer title with larger font and better visibility
+        // Clear scene and draw image with a simple title/info
+        hiddenLayerScene->clear();
         QGraphicsTextItem* layerTitle = hiddenLayerScene->addText(QString("Hidden Layer %1").arg(layerIdx + 1));
         layerTitle->setDefaultTextColor(Qt::white);
-        QFont titleFont = layerTitle->font();
-        titleFont.setPointSize(14);
-        titleFont.setBold(true);
-        layerTitle->setFont(titleFont);
-        layerTitle->setPos(10, 10);
-
-        // Add layer info
-        int inDim = 0, outDim = 0;
-        nnBackend->layerDims(layerIdx, inDim, outDim); // dims for weights; for hidden, outDim == neuron count
+        QFont titleFont = layerTitle->font(); titleFont.setPointSize(14); titleFont.setBold(true); layerTitle->setFont(titleFont); layerTitle->setPos(10, 10);
+        int inDim=0,outDim=0; nnBackend->layerDims(layerIdx, inDim, outDim);
         auto actEnum = nnBackend->hiddenActivation(layerIdx);
         const char* actName = (actEnum==NN_ACTIVATION_FUNCTION_TANH?"tanh": actEnum==NN_ACTIVATION_FUNCTION_RELU?"relu": actEnum==NN_ACTIVATION_FUNCTION_LEAKY_RELU?"leaky_relu":"sigmoid");
-        QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(
-            QString("Neurons: %1, Activation: %2").arg(outDim).arg(actName)
-        );
+        QGraphicsTextItem* layerInfo = hiddenLayerScene->addText(QString("Neurons: %1, Activation: %2").arg(outDim).arg(actName));
         layerInfo->setDefaultTextColor(Qt::white);
         layerInfo->setPos(10, layerTitle->boundingRect().height() + 20);
-
-        // Determine grid size for this layer
-        int hiddenSize = outDim;
-        int gridSize = static_cast<int>(std::ceil(std::sqrt(hiddenSize)));
-
-        // Calculate cell size - make it larger for better visibility
-        int cellSize = 30; // Larger size for better visibility
-
-        // Create a background for the grid
-        QGraphicsRectItem* gridBackground = hiddenLayerScene->addRect(
-            10,
-            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 30,
-            gridSize * cellSize + 20,
-            gridSize * cellSize + 20
-        );
-        gridBackground->setBrush(QBrush(QColor(60, 60, 60)));
-        gridBackground->setPen(QPen(Qt::white));
-
-        // Draw activations as a grid of colored squares
-        for (int i = 0; i < hiddenSize && i < (int)activations.size(); ++i) {
-            int row = i / gridSize;
-            int col = i % gridSize;
-
-            // Map activation to color intensity (0-255)
-            float activation_value = activations[i];
-            // Clamp activation value to [0, 1] to avoid out-of-range values
-            activation_value = std::max(0.0f, std::min(1.0f, activation_value));
-            int intensity = static_cast<int>(activation_value * 255);
-            QColor color(intensity, intensity, intensity);
-
-            // Create rectangle
-            QGraphicsRectItem* rect = hiddenLayerScene->addRect(
-                col * cellSize + 20,
-                row * cellSize + layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 40,
-                cellSize - 2,
-                cellSize - 2
-            );
-            rect->setBrush(QBrush(color));
-            rect->setPen(QPen(Qt::black));
-
-            // Add tooltip with neuron index and activation value
-            QGraphicsTextItem* tooltip = hiddenLayerScene->addText(
-                QString("Neuron %1: %2").arg(i).arg(activations[i], 0, 'f', 4)
-            );
-            tooltip->setVisible(false);
-            tooltip->setDefaultTextColor(Qt::white);
-            tooltip->setZValue(1); // Ensure it appears above other items
-
-            // Store tooltip in rect's data
-            rect->setData(0, QVariant::fromValue(tooltip));
-        }
+        QGraphicsPixmapItem* pix = hiddenLayerScene->addPixmap(QPixmap::fromImage(img.scaled(512, 512, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        pix->setPos(10, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 30);
+        hiddenLayerScene->setSceneRect(hiddenLayerScene->itemsBoundingRect());
+        if (ui && ui->gvHiddenLayer) ui->gvHiddenLayer->fitInView(hiddenLayerScene->sceneRect(), Qt::KeepAspectRatio);
     } catch (const std::exception& e) {
-        // Handle any exceptions that might occur during processing
         qWarning() << "Exception in updateHiddenLayerVisualization (rendering):" << e.what();
         return;
     } catch (...) {
-        // Catch any other exceptions
         qWarning() << "Unknown exception in updateHiddenLayerVisualization (rendering)";
         return;
     }
@@ -541,10 +483,10 @@ void MainWindow::updateHiddenLayerVisualization()
         // Calculate cell size - make it larger for better visibility
         int cellSize = 30; // Larger size for better visibility
 
-        // Add a legend
+        // Add a legend (0..255 grayscale) for reference
         QGraphicsRectItem* legendBackground = hiddenLayerScene->addRect(
             10,
-            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 60,
+            layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 60,
             300,
             80
         );
@@ -553,13 +495,13 @@ void MainWindow::updateHiddenLayerVisualization()
 
         QGraphicsTextItem* legendTitle = hiddenLayerScene->addText("Activation Legend:");
         legendTitle->setDefaultTextColor(Qt::white);
-        legendTitle->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 70);
+        legendTitle->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 70);
 
         // Create a gradient legend
         for (int i = 0; i < 256; ++i) {
             QGraphicsRectItem* legendItem = hiddenLayerScene->addRect(
                 20 + i,
-                layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 100,
+                layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 100,
                 1,
                 20
             );
@@ -569,15 +511,15 @@ void MainWindow::updateHiddenLayerVisualization()
 
         QGraphicsTextItem* zeroText = hiddenLayerScene->addText("0.0");
         zeroText->setDefaultTextColor(Qt::white);
-        zeroText->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+        zeroText->setPos(20, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 125);
 
         QGraphicsTextItem* oneText = hiddenLayerScene->addText("1.0");
         oneText->setDefaultTextColor(Qt::white);
-        oneText->setPos(270, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 125);
+        oneText->setPos(270, layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 125);
 
         // Set scene rect
-        int sceneWidth = std::max(gridSize * cellSize + 40, 320);
-        int sceneHeight = layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + gridSize * cellSize + 150;
+        int sceneWidth = std::max(512 + 40, 320);
+        int sceneHeight = layerTitle->boundingRect().height() + layerInfo->boundingRect().height() + 512 + 150;
         hiddenLayerScene->setSceneRect(0, 0, sceneWidth, sceneHeight);
 
         if (ui && ui->gvHiddenLayer) {
@@ -912,6 +854,7 @@ void MainWindow::updateHiddenLayersUIFromModel()
 
 void MainWindow::onAddHiddenLayerClicked()
 {
+    if (modelLocked) { QMessageBox::warning(this, "Locked", "Network configuration is locked after loading or starting training."); return; }
     // Add a new hidden layer with the same number of neurons as the last one
     int newLayerSize = hiddenLayerSizes.empty() ? 128 : hiddenLayerSizes.back();
     hiddenLayerSizes.push_back(newLayerSize);
@@ -934,6 +877,7 @@ void MainWindow::onAddHiddenLayerClicked()
 
 void MainWindow::onRemoveHiddenLayerClicked()
 {
+    if (modelLocked) { QMessageBox::warning(this, "Locked", "Network configuration is locked after loading or starting training."); return; }
     // Remove the last hidden layer
     if (!hiddenLayerSizes.empty()) {
         hiddenLayerSizes.pop_back();
@@ -958,6 +902,7 @@ void MainWindow::onRemoveHiddenLayerClicked()
 
 void MainWindow::onHiddenLayerValueChanged(int value)
 {
+    if (modelLocked) { QMessageBox::warning(this, "Locked", "Network configuration is locked after loading or starting training."); return; }
     // Get the layer index from the sender
     QSpinBox* spinBox = qobject_cast<QSpinBox*>(static_cast<QObject*>(sender()));
     if (spinBox) {
@@ -970,6 +915,7 @@ void MainWindow::onHiddenLayerValueChanged(int value)
 
 void MainWindow::onHiddenLayerActivationChanged(const QString& activation)
 {
+    if (modelLocked) { QMessageBox::warning(this, "Locked", "Network configuration is locked after loading or starting training."); return; }
     // Get the layer index from the sender
     QComboBox* comboBox = qobject_cast<QComboBox*>(static_cast<QObject*>(sender()));
     if (comboBox) {
@@ -995,8 +941,13 @@ void MainWindow::createModelFromUIConfig()
 
 void MainWindow::on_btnTrain_clicked()
 {
-    // Create a new model with the current configuration
-    createModelFromUIConfig();
+    // If no model yet, create from current configuration; else refuse edits
+    if (!nnBackend || !nnBackend->hasModel()) {
+        createModelFromUIConfig();
+    } else if (!modelLocked) {
+        // Lock if user attempts to change config while a model exists
+        setModelLocked(true);
+    }
 
     // Set training parameters
     worker->setPositiveDir(positiveDir);
@@ -1010,6 +961,14 @@ void MainWindow::on_btnTrain_clicked()
     // Set optimizer type based on combo box selection
     OptimizerType selectedOptimizer = static_cast<OptimizerType>(ui->cbOptimizer->currentIndex());
     worker->setOptimizer(selectedOptimizer);
+
+    // Persist training dirs and locked training params into model metadata
+    if (nnBackend && nnBackend->hasModel()) {
+        nnBackend->setDataDirs(positiveDir, negativeDir, validationDir);
+        nnBackend->setLockedTrainingParams(ui->sbBatchSize->value(), ui->sbLearningRate->value(), ui->cbShuffle->isChecked(), selectedOptimizer);
+        setModelLocked(true);
+        trainedSinceLastSave = true;
+    }
 
     // Disable UI elements during training
     ui->btnTrain->setEnabled(false);
@@ -1053,9 +1012,16 @@ void MainWindow::on_btnExportModel_clicked()
     }
 
     if (filePath.endsWith(".senm", Qt::CaseInsensitive)) {
+        // Ensure metadata is stored before save
+        if (nnBackend && nnBackend->hasModel()) {
+            nnBackend->setDataDirs(positiveDir, negativeDir, validationDir);
+            // If we have locked params (after first train or loaded), persist them too
+            nnBackend->setLockedTrainingParams(ui->sbBatchSize->value(), ui->sbLearningRate->value(), ui->cbShuffle->isChecked(), static_cast<OptimizerType>(ui->cbOptimizer->currentIndex()));
+        }
         bool success = nnBackend && nnBackend->hasModel() && nnBackend->saveModel(filePath);
         if (success) QMessageBox::information(this, "Export Successful", "Model exported successfully in binary format.");
         else QMessageBox::critical(this, "Export Failed", "Failed to write model to binary file.");
+        if (success) trainedSinceLastSave = false;
     } else {
         QMessageBox::critical(this, "Export Failed", "Only binary .senm export is supported.");
     }
@@ -1095,6 +1061,18 @@ void MainWindow::on_btnImportModel_clicked()
             }
             QMessageBox::information(this, "Import Successful", "Model imported successfully from binary format.");
             if (!currentImage.isNull()) updateCurrentImage();
+            // Load any saved data dirs and update UI labels
+            QString p, n, v; if (nnBackend->getDataDirs(p, n, v)) {
+                if (!p.isEmpty()) { positiveDir = p; ui->lblPositiveDir->setText(p); loadImagesFromDir(p, positiveImages); }
+                if (!n.isEmpty()) { negativeDir = n; ui->lblNegativeDir->setText(n); loadImagesFromDir(n, negativeImages); }
+                if (!v.isEmpty()) { validationDir = v; ui->lblValidationDir->setText(v); }
+                ui->btnTrain->setEnabled(!positiveDir.isEmpty());
+                ui->btnEvaluate->setEnabled(!positiveDir.isEmpty());
+            }
+            // Apply locked training params if present
+            applyLockedParamsFromModel();
+            setModelLocked(true);
+            trainedSinceLastSave = false;
         } else {
             QMessageBox::critical(this, "Import Failed", "Failed to load model from binary file.");
         }
@@ -1129,11 +1107,86 @@ void MainWindow::onTrainingComplete(float finalLoss)
 
     // Update status bar
     statusBar()->showMessage(QString("Training complete. Final loss: %1").arg(finalLoss, 0, 'f', 6), 5000);
+    trainedSinceLastSave = true;
 
     // Update current image if available
     if (!currentImage.isNull()) {
         updateCurrentImage();
     }
+}
+
+void MainWindow::setModelLocked(bool locked) {
+    modelLocked = locked;
+    // Disable network configuration controls when locked
+    if (addHiddenLayerButton) addHiddenLayerButton->setEnabled(!locked);
+    if (removeHiddenLayerButton) removeHiddenLayerButton->setEnabled(!locked);
+    if (hiddenLayersList) {
+        for (int i = 0; i < hiddenLayersList->count(); ++i) {
+            QWidget* w = hiddenLayersList->itemWidget(hiddenLayersList->item(i));
+            if (w) w->setEnabled(!locked);
+        }
+    }
+    // Also disable simple config widgets if present
+    if (ui->sbHiddenNeurons) ui->sbHiddenNeurons->setEnabled(!locked);
+    if (ui->cbHiddenActivation) ui->cbHiddenActivation->setEnabled(!locked);
+    if (ui->sbBias) ui->sbBias->setEnabled(!locked);
+    // Disable training params that must remain fixed across additional steps
+    if (ui->sbLearningRate) ui->sbLearningRate->setEnabled(!locked);
+    if (ui->sbBatchSize) ui->sbBatchSize->setEnabled(!locked);
+    if (ui->cbShuffle) ui->cbShuffle->setEnabled(!locked);
+    if (ui->cbOptimizer) ui->cbOptimizer->setEnabled(!locked);
+    // Keep epochs editable for additional training steps
+}
+
+void MainWindow::applyLockedParamsFromModel() {
+    if (!nnBackend || !nnBackend->hasModel()) return;
+    int bs=0; float lr=0.0f; bool sh=false; OptimizerType opt=OptimizerType::SGD;
+    if (nnBackend->getLockedTrainingParams(bs, lr, sh, opt)) {
+        if (ui->sbBatchSize) ui->sbBatchSize->setValue(bs);
+        if (ui->sbLearningRate) ui->sbLearningRate->setValue(lr);
+        if (ui->cbShuffle) ui->cbShuffle->setChecked(sh);
+        if (ui->cbOptimizer) ui->cbOptimizer->setCurrentIndex(static_cast<int>(opt));
+    }
+}
+
+void MainWindow::on_btnNewModel_clicked() {
+    if (!nnBackend) return;
+    if (nnBackend->hasModel() && trainedSinceLastSave) {
+        auto ret = QMessageBox::question(this, "Start New Model",
+                                         "You have unsaved training progress. Do you want to export the current model before starting a new one?",
+                                         QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+                                         QMessageBox::Yes);
+        if (ret == QMessageBox::Cancel) return;
+        if (ret == QMessageBox::Yes) {
+            on_btnExportModel_clicked();
+            if (trainedSinceLastSave) {
+                // export failed or canceled
+                return;
+            }
+        }
+    }
+    // Drop current model
+    nnBackend->resetModel();
+    setModelLocked(false);
+    trainedSinceLastSave = false;
+    // Clear data dirs and UI labels
+    positiveDir.clear(); negativeDir.clear(); validationDir.clear();
+    positiveImages.clear(); negativeImages.clear();
+    ui->lblPositiveDir->setText("Not set");
+    ui->lblNegativeDir->setText("Not set");
+    if (ui->lblValidationDir) ui->lblValidationDir->setText("Not set");
+    ui->btnTrain->setEnabled(false);
+    ui->btnEvaluate->setEnabled(false);
+    // Reset hidden layers to one default layer
+    hiddenLayerSizes.clear(); hiddenLayerActivations.clear();
+    hiddenLayerSizes.push_back(128); hiddenLayerActivations.push_back("sigmoid");
+    updateHiddenLayersUIFromModel();
+    if (hiddenLayerSelector) {
+        hiddenLayerSelector->clear(); hiddenLayerSelector->addItem("Hidden Layer 1");
+        currentHiddenLayerIndex = 0;
+    }
+    // Clear scenes
+    inputLayerScene->clear(); hiddenLayerScene->clear(); outputLayerScene->clear();
 }
 
 void MainWindow::onEvaluationComplete(float accuracy, int truePositives, int trueNegatives, int falsePositives, int falseNegatives)

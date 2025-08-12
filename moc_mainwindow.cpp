@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'mainwindow.h'
 **
-** Created by: The Qt Meta Object Compiler version 69 (Qt 6.9.1)
+** Created by: The Qt Meta Object Compiler version 69 (Qt 6.10.0)
 **
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
@@ -18,7 +18,7 @@
 #if !defined(Q_MOC_OUTPUT_REVISION)
 #error "The header file 'mainwindow.h' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 69
-#error "This file was generated using the moc from 6.9.1. It"
+#error "This file was generated using the moc from 6.10.0. It"
 #error "cannot be used with the include files from this version of Qt."
 #error "(The moc has changed too much.)"
 #endif
@@ -42,6 +42,7 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "on_btnLoadPositive_clicked",
         "",
         "on_btnLoadNegative_clicked",
+        "on_btnLoadValidation_clicked",
         "on_btnNextImage_clicked",
         "on_btnPrevImage_clicked",
         "on_btnTrain_clicked",
@@ -70,7 +71,9 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "value",
         "onHiddenLayerActivationChanged",
         "activation",
-        "onHiddenLayerSelectorChanged"
+        "onHiddenLayerSelectorChanged",
+        "onExportVisualizationsClicked",
+        "on_btnNewModel_clicked"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -78,55 +81,61 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'on_btnLoadNegative_clicked'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnNextImage_clicked'
+        // Slot 'on_btnLoadValidation_clicked'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnPrevImage_clicked'
+        // Slot 'on_btnNextImage_clicked'
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnTrain_clicked'
+        // Slot 'on_btnPrevImage_clicked'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnEvaluate_clicked'
+        // Slot 'on_btnTrain_clicked'
         QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnExportModel_clicked'
+        // Slot 'on_btnEvaluate_clicked'
         QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'on_btnImportModel_clicked'
+        // Slot 'on_btnExportModel_clicked'
         QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'on_btnImportModel_clicked'
+        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onTrainingProgressUpdated'
-        QtMocHelpers::SlotData<void(int, int, float)>(10, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 11 }, { QMetaType::Int, 12 }, { QMetaType::Float, 13 },
+        QtMocHelpers::SlotData<void(int, int, float)>(11, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 12 }, { QMetaType::Int, 13 }, { QMetaType::Float, 14 },
         }}),
         // Slot 'onEpochCompleted'
-        QtMocHelpers::SlotData<void(int, float, float)>(14, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 11 }, { QMetaType::Float, 13 }, { QMetaType::Float, 15 },
+        QtMocHelpers::SlotData<void(int, float, float)>(15, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 12 }, { QMetaType::Float, 14 }, { QMetaType::Float, 16 },
         }}),
         // Slot 'onTrainingComplete'
-        QtMocHelpers::SlotData<void(float)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Float, 17 },
+        QtMocHelpers::SlotData<void(float)>(17, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Float, 18 },
         }}),
         // Slot 'onEvaluationComplete'
-        QtMocHelpers::SlotData<void(float, int, int, int, int)>(18, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Float, 19 }, { QMetaType::Int, 20 }, { QMetaType::Int, 21 }, { QMetaType::Int, 22 },
-            { QMetaType::Int, 23 },
+        QtMocHelpers::SlotData<void(float, int, int, int, int)>(19, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Float, 20 }, { QMetaType::Int, 21 }, { QMetaType::Int, 22 }, { QMetaType::Int, 23 },
+            { QMetaType::Int, 24 },
         }}),
         // Slot 'onTabChanged'
-        QtMocHelpers::SlotData<void(int)>(24, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 25 },
+        QtMocHelpers::SlotData<void(int)>(25, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 26 },
         }}),
         // Slot 'onAddHiddenLayerClicked'
-        QtMocHelpers::SlotData<void()>(26, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onRemoveHiddenLayerClicked'
         QtMocHelpers::SlotData<void()>(27, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onRemoveHiddenLayerClicked'
+        QtMocHelpers::SlotData<void()>(28, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onHiddenLayerValueChanged'
-        QtMocHelpers::SlotData<void(int)>(28, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 29 },
+        QtMocHelpers::SlotData<void(int)>(29, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 30 },
         }}),
         // Slot 'onHiddenLayerActivationChanged'
-        QtMocHelpers::SlotData<void(const QString &)>(30, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 31 },
+        QtMocHelpers::SlotData<void(const QString &)>(31, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 32 },
         }}),
         // Slot 'onHiddenLayerSelectorChanged'
-        QtMocHelpers::SlotData<void(int)>(32, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 25 },
+        QtMocHelpers::SlotData<void(int)>(33, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 26 },
         }}),
+        // Slot 'onExportVisualizationsClicked'
+        QtMocHelpers::SlotData<void()>(34, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'on_btnNewModel_clicked'
+        QtMocHelpers::SlotData<void()>(35, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -152,22 +161,25 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         switch (_id) {
         case 0: _t->on_btnLoadPositive_clicked(); break;
         case 1: _t->on_btnLoadNegative_clicked(); break;
-        case 2: _t->on_btnNextImage_clicked(); break;
-        case 3: _t->on_btnPrevImage_clicked(); break;
-        case 4: _t->on_btnTrain_clicked(); break;
-        case 5: _t->on_btnEvaluate_clicked(); break;
-        case 6: _t->on_btnExportModel_clicked(); break;
-        case 7: _t->on_btnImportModel_clicked(); break;
-        case 8: _t->onTrainingProgressUpdated((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[3]))); break;
-        case 9: _t->onEpochCompleted((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<float>>(_a[3]))); break;
-        case 10: _t->onTrainingComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1]))); break;
-        case 11: _t->onEvaluationComplete((*reinterpret_cast< std::add_pointer_t<float>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[5]))); break;
-        case 12: _t->onTabChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
-        case 13: _t->onAddHiddenLayerClicked(); break;
-        case 14: _t->onRemoveHiddenLayerClicked(); break;
-        case 15: _t->onHiddenLayerValueChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
-        case 16: _t->onHiddenLayerActivationChanged((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 17: _t->onHiddenLayerSelectorChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 2: _t->on_btnLoadValidation_clicked(); break;
+        case 3: _t->on_btnNextImage_clicked(); break;
+        case 4: _t->on_btnPrevImage_clicked(); break;
+        case 5: _t->on_btnTrain_clicked(); break;
+        case 6: _t->on_btnEvaluate_clicked(); break;
+        case 7: _t->on_btnExportModel_clicked(); break;
+        case 8: _t->on_btnImportModel_clicked(); break;
+        case 9: _t->onTrainingProgressUpdated((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<float>>(_a[3]))); break;
+        case 10: _t->onEpochCompleted((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<float>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<float>>(_a[3]))); break;
+        case 11: _t->onTrainingComplete((*reinterpret_cast<std::add_pointer_t<float>>(_a[1]))); break;
+        case 12: _t->onEvaluationComplete((*reinterpret_cast<std::add_pointer_t<float>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[4])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[5]))); break;
+        case 13: _t->onTabChanged((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
+        case 14: _t->onAddHiddenLayerClicked(); break;
+        case 15: _t->onRemoveHiddenLayerClicked(); break;
+        case 16: _t->onHiddenLayerValueChanged((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
+        case 17: _t->onHiddenLayerActivationChanged((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
+        case 18: _t->onHiddenLayerSelectorChanged((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
+        case 19: _t->onExportVisualizationsClicked(); break;
+        case 20: _t->on_btnNewModel_clicked(); break;
         default: ;
         }
     }
@@ -192,14 +204,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 18)
+        if (_id < 21)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 18;
+        _id -= 21;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 18)
+        if (_id < 21)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 18;
+        _id -= 21;
     }
     return _id;
 }

@@ -16,6 +16,8 @@
 #include <QListWidget>
 #include <QSpinBox>
 #include <QComboBox>
+#include <QPushButton>
+#include <QCheckBox>
 
 #include "trainingworker.h"
 #include "losscurvewidget.h"
@@ -108,11 +110,11 @@ private:
     QCheckBox* visStatsCheck = nullptr;     // include stats
     QCheckBox* visRawCheck = nullptr;       // raw non-square weights
 
-private slots:
-    void onExportVisualizationsClicked();
-
+private:
     // Backend using libnoodlenet for model I/O and predict
     NoodleNetBackend* nnBackend = nullptr;
+    bool modelLocked = false;                // lock config after load or first training
+    bool trainedSinceLastSave = false;       // track unsaved training steps
 
     // Initialize UI
     void initializeUI();
@@ -145,7 +147,12 @@ private slots:
     void updateOutputLayerVisualization();
 
 private slots:
-    void on_btnLoadValidation_clicked();
+    void onExportVisualizationsClicked();
+    void on_btnNewModel_clicked();
+
+private:
+    void setModelLocked(bool locked);
+    void applyLockedParamsFromModel();
 };
 
 #endif // MAINWINDOW_H

@@ -168,6 +168,7 @@ void TrainingWorker::train()
                                                      localValidationDir,
                                                      /*steps*/1,
                                                      localBatchSize,
+                                                     localShuffle,
                                                      localLearningRate,
                                                      /*l1*/0.0f,
                                                      /*l2*/0.0f,
